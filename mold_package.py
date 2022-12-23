@@ -39,9 +39,12 @@ with open(filename, 'r') as f:
 for ii, line in enumerate(file): file[ii] = line.replace(template_name, package_name)
 for ii, line in enumerate(file): file[ii] = line.replace(template_author, author_name)
 for ii, line in enumerate(file): file[ii] = line.replace(template_email, author_email)
+is_new_package = False
 for ii, line in enumerate(file): 
     if 'If you are using this template, please mention the following in your package:' in line:
         if package_name != 'SimplePythonPackageTemplate': file[ii] = ''
+    if 'This package uses the template provided at https://github.com/sambit-giri/' in line:
+        if package_name != 'SimplePythonPackageTemplate': file[ii] = line.replace(package_name, template_name)
 file[2] = file[2].replace(file[2].split('. More documentation')[0], package_description_line)
 with open(filename, 'w') as f:
     f.writelines(file)

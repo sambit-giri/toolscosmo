@@ -1,6 +1,6 @@
 # GalaxyTools
 
-A python package for analysing galaxy simulations and observations.. More documentation can be found at its [readthedocs](https://GalaxyTools.readthedocs.io/) page.
+A python package for analysing galaxy simulations and observations. More documentation can be found at its [readthedocs](https://GalaxyTools.readthedocs.io/) page.
 
 ## Package details
 
@@ -39,5 +39,5 @@ If you find any bugs or unexpected behavior in the code, please feel free to ope
 ## CREDIT
 
 
-    This package uses the template provided at https://github.com/sambit-giri/GalaxyTools/ 
+    This package uses the template provided at https://github.com/sambit-giri/SimplePythonPackageTemplate/ 
     
