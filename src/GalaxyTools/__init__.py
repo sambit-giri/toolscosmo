@@ -1,5 +1,9 @@
+from . import param, cosmo, constants
+from . import mass_accretion, source_model, luminosity_function
 
 from .param import *
-from .basic_functions import *
-from .cosmo_equations import * 
-from .calculator import *
+from .cosmo import *
+# from .mass_accretion import *
+# from .source_model import *
+# from .constants import *
+from .luminosity_function import *
