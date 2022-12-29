@@ -36,7 +36,10 @@ class UVLF:
         self.param = param 
         self.output = {}
 
-    def absolute_Muv_SZ21(self, M0=51.6, kappa=1.15e-28):
+    def Muv(self, M0=51.6, kappa=1.15e-28):
+        '''
+        See eq (1) in Sahlen & Zackrisson (2021) or eqs (12,13) in Park et al. (2019).
+        '''
         param  = self.param
         output = self.output
         # M0 = 51.6
@@ -57,7 +60,7 @@ class UVLF:
         output = self.output
         try: M_AB = output['M_AB']
         except:
-            output = self.absolute_Muv_SZ21(M0=51.6, kappa=1.15e-28)
+            output = self.Muv(M0=51.6, kappa=1.15e-28)
             M_AB = output['M_AB']
         zz = output['z']
         mm = output['m']
@@ -82,7 +85,7 @@ class UVLF:
         output = self.output
         try: M_AB = output['M_AB']
         except:
-            output = self.absolute_Muv_SZ21(M0=51.6, kappa=1.15e-28)
+            output = self.Muv(M0=51.6, kappa=1.15e-28)
             M_AB = output['M_AB']
         zz = output['z']
         mm = output['m']
@@ -104,6 +107,7 @@ class UVLF:
     def UV_luminosity_SZ21(self):
         # return self.UV_luminosity_SZ21_eq1()
         return self.UV_luminosity_SZ21_def()
+
 
 
 

@@ -95,14 +95,14 @@ plt.show()
 
 m_ac = GalaxyTools.mass_accr(par, output=hmf)
 uvlf = GalaxyTools.UVLF(par)
-out_lf = uvlf.absolute_Muv_SZ21(); print(out_lf.keys())
+out_lf = uvlf.Muv(); print(out_lf.keys())
 out_lf = uvlf.UV_luminosity_SZ21(); print(out_lf.keys())
 
 z_plot = [6,7,8]
 fig, ax = plt.subplots(1,1,figsize=(6,4))
 for ii,zi in enumerate(z_plot):
     z_idx = np.abs(out_lf['z']-zi).argmin() 
-    ax.semilogy(out_lf['uvlf']['Muv_mean'], out_lf['uvlf']['phi_uv'][z_idx,:], lw=3, ls=lstyles[ii], label='z={:.1f}'.format(zi))
+    ax.plot(out_lf['uvlf']['Muv_mean'], out_lf['uvlf']['phi_uv'][z_idx,:], lw=3, ls=lstyles[ii], label='z={:.1f}'.format(zi))
 ax.legend()
 # ax.axis([5e5,3e14,5e-6,8e-2])
 ax.set_xlabel(r'$M_{\rm UV}$', fontsize=13)
