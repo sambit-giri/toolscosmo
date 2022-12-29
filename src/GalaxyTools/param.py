@@ -104,7 +104,22 @@ def lf_par():
         "Muv_max": -15.0,               # max redshift (not tested below 40)
         "NMuv": 10,                  # Nb of redshift bins
         "sig_M": 0.5,
-        "eps_sys": 1,   
+        "eps_sys": 1,  
+        # fstar
+        "f0_sfe": 0.05,
+        "Mp_sfe": 2.0e11,
+        "g1_sfe": 0.49,
+        "g2_sfe": -0.61,
+        "Mt_sfe": 0.0,
+        "g3_sfe": 2.0,
+        "g4_sfe": -1.0, 
+        "f0_sfe_nu": 0.0,
+        "Mp_sfe_nu": 0.0,
+        "Mt_sfe_nu": 0.0,
+        "g1_sfe_nu": 0.0,
+        "g2_sfe_nu": 0.0,
+        "g3_sfe_nu": 0.0,
+        "g4_sfe_nu": 0.0, 
         }
     return Bunch(par)
 

@@ -47,7 +47,7 @@ class UVLF:
         hmf = mass_fct(param)
         output.update(hmf)
         output.update(mass_accr(param,output=output))
-        fstars = fstar(output['z'], output['m'], 'xray', param)
+        fstars = fstar(output['z'], output['m'], 'lf', param)
         output.update({'fstar': fstars})
         M_AB = M0 - 2.5*(np.log10(fstars) + np.log10(param.cosmo.Ob/param.cosmo.Om) +\
                 np.log10(output['dMdt_accr']) - np.log10(kappa) - np.log10(param.cosmo.h0)

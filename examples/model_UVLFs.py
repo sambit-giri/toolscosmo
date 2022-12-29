@@ -33,13 +33,21 @@ par.mf.p      = 0.3
 
 par.code.MA = 'EXP' #'EPS'
 
-par.lyal.f0 = 0.05  #0.20
-par.lyal.g1 = 0.55  #-0.5
-par.lyal.g2 = -1.03 #-0.5
+# par.lyal.f0_sfe = 0.05  #0.20
+# par.lyal.g1_sfe = 0.49  #0.55  #-0.5
+# par.lyal.g2_sfe = -0.61 #-1.03 #-0.5
+# par.lyal.g3_sfe = 5  #0
+# par.lyal.g4_sfe = -5 #0
+# par.lyal.Mp_sfe = 2.0e11
+# par.lyal.Mt_sfe = 7e8 #3.5e8 #7.0e7
 
-par.xray.f0 = 0.05 #0.20
-par.xray.g1 = 0.55 #-0.5
-par.xray.g2 = -1.03#-0.5
+# par.xray.f0_sfe = par.lyal.f0_sfe #0.05
+# par.xray.g1_sfe = par.lyal.g1_sfe #-0.5
+# par.xray.g2_sfe = par.lyal.g2_sfe #-0.5
+# par.xray.g3_sfe = par.lyal.g3_sfe #0
+# par.xray.g4_sfe = par.lyal.g4_sfe #0
+# par.xray.Mp_sfe = par.lyal.Mp_sfe
+# par.xray.Mt_sfe = par.lyal.Mt_sfe
 
 par.code.Mdark = 1e5
 
@@ -54,6 +62,20 @@ par.xray.fX  = 1.0
 
 par.reio.Nion = 2000
 par.reio.fesc = 1.0
+
+par.lf.f0_sfe = 0.05  #0.20
+par.lf.g1_sfe = 0.49  #0.55  #-0.5
+par.lf.g2_sfe = -0.61 #-1.03 #-0.5
+par.lf.g3_sfe = 5  #0
+par.lf.g4_sfe = -5 #0
+par.lf.Mp_sfe = 2.0e11
+par.lf.Mt_sfe = 7e8 #3.5e8 #7.0e7
+par.lf.g1_sfe_nu = 0
+par.lf.g2_sfe_nu = 0
+par.lf.g3_sfe_nu = 0
+par.lf.g4_sfe_nu = 0
+par.lf.Mp_sfe_nu = 0
+par.lf.Mt_sfe_nu = 0
 
 par.lf.Muv_min = -23.
 par.lf.Muv_max = -8.0 #-15
@@ -83,7 +105,7 @@ ax.set_ylabel(r'$\frac{\mathrm{d}n}{\mathrm{d}lnM}$', fontsize=15)
 ## UV LFs
 M0 = 51.6
 kappa  = 1.15e-28  # Msun yr^-1 /(erg s^-1 Hz^-1)
-fstars = GalaxyTools.fstar(hmf['z'], hmf['m'], 'xray', par)
+fstars = GalaxyTools.fstar(hmf['z'], hmf['m'], 'lf', par)
 
 z_plot = [6,7,8]
 ax = axs[1] # fig, ax = plt.subplots(1,1,figsize=(6,4))

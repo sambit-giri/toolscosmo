@@ -58,19 +58,34 @@ def fstar(zz,m,type_of_flux,param):
         gamma4 = param.lyal.g4_sfe
         Mpivot = param.lyal.Mp_sfe
         Mtrunc = param.lyal.Mt_sfe
+    elif (type_of_flux.lower()=='lf'):
+        fstar0 = param.lf.f0_sfe*(1+zz)**param.lf.f0_sfe_nu
+        gamma1 = param.lf.g1_sfe*(1+zz)**param.lf.g1_sfe_nu
+        gamma2 = param.lf.g2_sfe*(1+zz)**param.lf.g2_sfe_nu
+        gamma3 = param.lf.g3_sfe*(1+zz)**param.lf.g3_sfe_nu
+        gamma4 = param.lf.g4_sfe*(1+zz)**param.lf.g4_sfe_nu
+        Mpivot = param.lf.Mp_sfe*(1+zz)**param.lf.Mp_sfe_nu
+        Mtrunc = param.lf.Mt_sfe*(1+zz)**param.lf.Mt_sfe_nu
     else:
-        print("ERROR: type of flux has to be eithewr xray or lyal!")
+        print("ERROR: type of flux has to be either lf, xray or lyal!")
         exit()
     Mmin   = param.code.Mdark
 
     fstar = np.zeros((len(zz),len(m)))
     for i in range(len(zz)):
-        denom1 = (m/Mpivot)**gamma1
-        denom2 = (m/Mpivot)**gamma2
+        try:
+            g1, g2, g3, g4 = gamma1[i], gamma2[i], gamma3[i], gamma4[i]
+            f0, Mp, Mt = fstar0[i], Mpivot[i], Mtrunc[i]
+        except:
+            g1, g2, g3, g4 = gamma1, gamma2, gamma3, gamma4
+            f0, Mp, Mt = fstar0, Mpivot, Mtrunc
 
-        trunc  = (1+(Mtrunc/m)**gamma3)**gamma4
+        denom1 = (m/Mp)**g1
+        denom2 = (m/Mp)**g2
 
-        fstar[i,:] = 2*fstar0/(denom1+denom2)*trunc
+        trunc  = (1+(Mt/m)**g3)**g4
+
+        fstar[i,:] = 2*f0/(denom1+denom2)*trunc
         fstar[i,np.where(fstar[i,:]>1)] = 1
 
         fstar[i,np.where(m<Mmin)] = 0
