@@ -33,13 +33,13 @@ par.mf.p      = 0.3
 
 par.code.MA = 'EXP' #'EPS'
 
-par.lyal.f0 = 0.05 #0.20
-par.lyal.g1 = -0.5
-par.lyal.g2 = -0.5
+par.lyal.f0 = 0.05  #0.20
+par.lyal.g1 = 0.55  #-0.5
+par.lyal.g2 = -1.03 #-0.5
 
 par.xray.f0 = 0.05 #0.20
-par.xray.g1 = -0.5
-par.xray.g2 = -0.5
+par.xray.g1 = 0.55 #-0.5
+par.xray.g2 = -1.03#-0.5
 
 par.code.Mdark = 1e5
 
@@ -56,7 +56,7 @@ par.reio.Nion = 2000
 par.reio.fesc = 1.0
 
 par.lf.Muv_min = -23.
-par.lf.Muv_max = -15 #-10.
+par.lf.Muv_max = -8.0 #-15
 par.lf.NMuv  = 20
 par.lf.sig_M = 0.2
 par.lf.eps_sys = 1.0
@@ -93,7 +93,7 @@ for ii,zi in enumerate(z_plot):
 ax.legend()
 ax.axis([5e5,3e14,5e-6,8e-2])
 ax.set_xlabel(r'$M$ [$h^{-1}$M$_\odot$]', fontsize=13)
-ax.set_ylabel(r'$\frac{\mathrm{d}n}{\mathrm{d}lnM}$', fontsize=15)
+ax.set_ylabel(r'$f_\star$', fontsize=15)
 # plt.tight_layout()
 # plt.show()
 
@@ -120,46 +120,72 @@ ax.set_ylabel(r'$\phi (M_{\rm UV})$', fontsize=15)
 plt.tight_layout()
 plt.show()
 
-exit()
-
-from scipy.integrate import quad, simps
-from scipy.interpolate import splev, splrep, interp1d
-
-def UV_luminosity_SZ21_def(self):
-    param  = self.param
-    output = self.output
-    try: M_AB = output['M_AB']
-    except:
-        output = self.Muv(M0=51.6, kappa=1.15e-28)
-        M_AB = output['M_AB']
-    zz = output['z']
-    mm = output['m']
-    dndlnm = output['dndlnm']
-    Muv_edges = np.linspace(param.lf.Muv_min,param.lf.Muv_max,param.lf.NMuv+1)
-    Muv_mean  = Muv_edges[1:]/2.+Muv_edges[:-1]/2.
-    phi_uv = np.zeros((len(zz),len(Muv_mean)))
-    dMab = np.diff(M_AB)
-    dMh  = np.diff(mm)
-    dMhdMab = -dMh[None,:]/dMab #dMh[None,:]/dMab
-    for i in range(zz.size):
-        dndm_fct   = interp1d(M_AB[i,:], dndlnm[i,:]/mm, fill_value='extrapolate')
-        dMuvdm_fct = interp1d(M_AB[i,1:]/2+M_AB[i,:-1]/2, dMhdMab[i,:], fill_value='extrapolate')
-        phi_uv[i,:] = dndm_fct(Muv_mean) * dMuvdm_fct(Muv_mean)
-    output['uvlf'] = {'Muv_mean': Muv_mean, 'phi_uv': phi_uv}
-    self.output = output
-    return output 
-
-
-out_lf1 = UV_luminosity_SZ21_def(uvlf)
-
 z_plot = [6,7,8]
-fig, ax = plt.subplots(1,1,figsize=(6,4))
+fig0, ax01 = plt.subplots(1,2,figsize=(9,4))
+ax0, ax1 = ax01
 for ii,zi in enumerate(z_plot):
     z_idx = np.abs(out_lf['z']-zi).argmin() 
-    ax.plot(out_lf1['uvlf']['Muv_mean'], out_lf1['uvlf']['phi_uv'][z_idx,:], lw=3, ls=lstyles[ii], label='z={:.1f}'.format(zi))
-ax.legend()
-# ax.axis([5e5,3e14,5e-6,8e-2])
-ax.set_xlabel(r'$M_{\rm UV}$', fontsize=13)
-ax.set_ylabel(r'$\phi (M_{\rm UV})$', fontsize=15)
+    ax0.plot(out_lf['M_AB'][z_idx,:], out_lf['m'], lw=3, ls=lstyles[ii], label='z={:.1f}'.format(zi))
+    ax1.loglog(hmf['m'], fstars[z_idx,:], lw=3, ls=lstyles[ii], label='z={:.1f}'.format(zi))
+ax0.set_yscale('log')
+ax0.legend()
+ax0.axis([-26,-7,2e5,3e15])
+ax0.set_xlabel(r'$M_{\rm UV}$', fontsize=13)
+ax0.set_ylabel(r'$M_{\rm h}$', fontsize=15)
+ax1.legend()
+ax1.axis([5e5,3e14,5e-6,8e-2])
+ax1.set_xlabel(r'$M$ [$h^{-1}$M$_\odot$]', fontsize=13)
+ax1.set_ylabel(r'$f_\star$', fontsize=15)
+plt.tight_layout()
+# plt.show()
+
+Park19_Bouwens_data   = np.loadtxt('Park19_Bouwens.txt')
+Park19_Atek_data      = np.loadtxt('Park19_Atek.txt')
+Park19_Livermore_data = np.loadtxt('Park19_Livermore.txt')
+Park19_Ishigaki_data  = np.loadtxt('Park19_Ishigaki.txt')
+Park19_Oesch_data     = np.loadtxt('Park19_Oesch.txt')
+
+fig, axs = plt.subplots(1,4,figsize=(15,4))
+# j,zj = 0, 6
+for j,zj in enumerate([6,7,8,10]):
+    axs[j].set_title('$z\sim {}$'.format(zj))
+    az = np.where(Park19_Bouwens_data[:,-1]==zj)
+    xx, yy = Park19_Bouwens_data[az,0].squeeze(), Park19_Bouwens_data[az,1].squeeze()
+    yl, yp = Park19_Bouwens_data[az,2].squeeze(), Park19_Bouwens_data[az,3].squeeze()
+    axs[j].errorbar(xx, yy, yerr=[yy-yl,yp-yy], #np.max([yy-yl,yp-yy], axis=0), 
+                    ls=' ', marker='o', markeredgecolor='k', color='coral', 
+                    label='Bouwens+2015,2017' if j==0 else None)
+    az = np.where(Park19_Atek_data[:,-1]==zj)
+    xx, yy = Park19_Atek_data[az,0].squeeze(), Park19_Atek_data[az,1].squeeze()
+    yl, yp = Park19_Atek_data[az,2].squeeze(), Park19_Atek_data[az,3].squeeze()
+    axs[j].errorbar(xx, yy, yerr=[yy-yl,yp-yy], #np.max([yy-yl,yp-yy], axis=0), 
+                    ls=' ', marker='D', markeredgecolor='k', color='orange', 
+                    label='Atek+2018' if j==0 else None)
+    az = np.where(Park19_Livermore_data[:,-1]==zj)
+    xx, yy = Park19_Livermore_data[az,0].squeeze(), Park19_Livermore_data[az,1].squeeze()
+    yl, yp = Park19_Livermore_data[az,2].squeeze(), Park19_Livermore_data[az,3].squeeze()
+    axs[j].errorbar(xx, yy, yerr=[yy-yl,yp-yy], #np.max([yy-yl,yp-yy], axis=0), 
+                    ls=' ', marker='s', markeredgecolor='k', color='lightblue', 
+                    label='Livermore+2017' if j==2 else None)
+    az = np.where(Park19_Ishigaki_data[:,-1]==zj)
+    xx, yy = Park19_Ishigaki_data[az,0].squeeze(), Park19_Ishigaki_data[az,1].squeeze()
+    yl, yp = Park19_Ishigaki_data[az,2].squeeze(), Park19_Ishigaki_data[az,3].squeeze()
+    axs[j].errorbar(xx, yy, yerr=[yy-yl,yp-yy], #np.max([yy-yl,yp-yy], axis=0), 
+                    ls=' ', marker='p', markeredgecolor='k', color='violet', 
+                    label='Ishigaki+2017' if j==2 else None)
+    az = np.where(Park19_Oesch_data[:,-1]==zj)
+    xx, yy = Park19_Oesch_data[az,0].squeeze(), Park19_Oesch_data[az,1].squeeze()
+    yl, yp = Park19_Oesch_data[az,2].squeeze(), Park19_Oesch_data[az,3].squeeze()
+    axs[j].errorbar(xx, yy, yerr=[yy-yl,yp-yy], #np.max([yy-yl,yp-yy], axis=0), 
+                    ls=' ', marker='h', markeredgecolor='k', color='green', 
+                    label='Oesch+2017' if j==3 else None)
+    axs[j].set_yscale('log')
+    axs[j].axis([-23,-9,7e-6,3e2])
+    z_jdx = np.abs(out_lf['z']-zj).argmin() 
+    axs[j].plot(out_lf['uvlf']['Muv_mean'], out_lf['uvlf']['phi_uv'][z_jdx,:], 
+                    lw=3, ls='-', color='k', label='Model' if j==1 else None)
+    axs[j].legend()
+    axs[j].set_xlabel(r'$M_{\rm UV}$', fontsize=13)
+    axs[j].set_ylabel(r'$\phi (M_{\rm UV})$', fontsize=15)
 plt.tight_layout()
 plt.show()
