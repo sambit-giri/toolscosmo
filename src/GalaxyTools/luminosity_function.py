@@ -50,7 +50,8 @@ class UVLF:
         fstars = fstar(output['z'], output['m'], 'xray', param)
         output.update({'fstar': fstars})
         M_AB = M0 - 2.5*(np.log10(fstars) + np.log10(param.cosmo.Ob/param.cosmo.Om) +\
-            np.log10(output['dMdt_accr']) - np.log10(kappa) )
+                np.log10(output['dMdt_accr']) - np.log10(kappa) - np.log10(param.cosmo.h0)
+                )
         output.update({'M_AB': M_AB})
         self.output = output
         return output
@@ -80,7 +81,7 @@ class UVLF:
         self.output = output
         return output 
 
-    def UV_luminosity_SZ21_def(self):
+    def UV_luminosity_def(self):
         param  = self.param
         output = self.output
         try: M_AB = output['M_AB']
@@ -95,18 +96,18 @@ class UVLF:
         phi_uv = np.zeros((len(zz),len(Muv_mean)))
         dMab = np.diff(M_AB)
         dMh  = np.diff(mm)
-        dMhdMab = dMh[None,:]/dMab
+        dMhdMab = -dMh[None,:]/dMab #dMh[None,:]/dMab
         for i in range(zz.size):
             dndm_fct   = interp1d(M_AB[i,:], dndlnm[i,:]/mm, fill_value='extrapolate')
             dMuvdm_fct = interp1d(M_AB[i,1:]/2+M_AB[i,:-1]/2, dMhdMab[i,:], fill_value='extrapolate')
-            phi_uv[i,:] = dndm_fct(Muv_mean) * dMuvdm_fct(Muv_mean)
+            phi_uv[i,:] = param.lf.eps_sys*dndm_fct(Muv_mean) * dMuvdm_fct(Muv_mean)
         output['uvlf'] = {'Muv_mean': Muv_mean, 'phi_uv': phi_uv}
         self.output = output
         return output 
 
-    def UV_luminosity_SZ21(self):
+    def UV_luminosity(self):
         # return self.UV_luminosity_SZ21_eq1()
-        return self.UV_luminosity_SZ21_def()
+        return self.UV_luminosity_def()
 
 
 
