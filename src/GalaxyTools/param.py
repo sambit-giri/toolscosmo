@@ -13,8 +13,8 @@ class Bunch(object):
 
 def code_par():
     par = {
-        "zmin": 6.0,                # min redshift
-        "zmax": 60.0,               # max redshift (not tested below 40)
+        "zmin": 5.0,                # min redshift
+        "zmax": 50.0,               # max redshift (not tested below 40)
         "Nz": 100,                  # Nb of redshift bins
         "zstar": 35,                # redshift of first star formation
         "Mdark": 1e5,               # lowest mass of star formation 
@@ -49,10 +49,10 @@ def cosmo_par():
 
 def mf_par():
     par = {
-        "window": 'sharpk',  # [sharpk,smoothk,tophat]
+        "window": 'tophat',  # [sharpk,smoothk,tophat]
         "dc": 1.675,          # delta_c
         "p": 0.3,             # p par of f(nu) [0.3,0.3,1] for [ST,smoothk,PS]
-        "q": 1.0,             # q par of f(nu) [0.707,1,1] for [ST,smoothk,PS]
+        "q": 0.85,             # q par of f(nu) [0.707,1,1] for [ST,smoothk,PS]
         "c": 2.5,             # prop constant for mass [only read for sharpk,smoothk]
         "beta": 4.0,          # additional free param for smoothk
         }
@@ -100,20 +100,20 @@ def reio_par():
 
 def lf_par():
     par = {
-        "Muv_min": -23.0,                # min redshift
-        "Muv_max": -15.0,               # max redshift (not tested below 40)
-        "NMuv": 10,                  # Nb of redshift bins
-        "sig_M": 0.5,
+        "Muv_min": -25.0,                # min redshift
+        "Muv_max": -8.0,               # max redshift (not tested below 40)
+        "NMuv": 30,                  # Nb of redshift bins
+        "sig_M": 0.2,
         "eps_sys": 1,  
         # fstar
         "f0_sfe": 0.05,
         "Mp_sfe": 2.0e11,
         "g1_sfe": 0.49,
         "g2_sfe": -0.61,
-        "Mt_sfe": 0.0,
-        "g3_sfe": 2.0,
-        "g4_sfe": -1.0, 
-        "f0_sfe_nu": 0.0,
+        "Mt_sfe": 7e8,
+        "g3_sfe": 5.0,
+        "g4_sfe": -5.0, 
+        "f0_sfe_nu": -0.1,
         "Mp_sfe_nu": 0.0,
         "Mt_sfe_nu": 0.0,
         "g1_sfe_nu": 0.0,
@@ -125,7 +125,7 @@ def lf_par():
 
 def io_files():
     par = {
-        "ps": 'CDM_PLANCK_pk.dat',
+        "ps" : 'CDM_Planck15_pk.dat',
         "tau": 'tabulated_tau.npz',
         }
     return Bunch(par)
