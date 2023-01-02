@@ -7,6 +7,7 @@ import numpy as np
 from scipy.integrate import cumtrapz, trapz, quad
 from scipy.interpolate import splrep,splev
 from .constants import rhoc0,c
+from .run_BoltzmannSolver import *
 
 def rhoc_of_z(z,param):
     """
@@ -71,7 +72,18 @@ def read_powerspectrum(param):
     """
     Linear power spectrum from file
     """
-    names='k, P'
-    PS = np.genfromtxt(param.file.ps,usecols=(0,1),comments='#',dtype=None, names=names)
+    try:
+        names='k, P'
+        PS = np.genfromtxt(param.file.ps,usecols=(0,1),comments='#',dtype=None, names=names)
+    except:
+        # print(param.file.ps)
+        if param.file.ps.lower()=='camb':
+            r = run_camb(param)
+        elif param.file.ps.lower()=='class':
+            class_ = run_class(param)
+            PS = {'k': class_.k, 'P': class_.pk_lin}
+        else:
+            print('Either choose between CAMB or CLASS Boltmann Solvers or provide a file containing the linear power spectrum.')
+            PS = None
     return PS
 

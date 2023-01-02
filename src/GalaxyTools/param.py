@@ -13,6 +13,7 @@ class Bunch(object):
 
 def code_par():
     par = {
+        "verbose": False,
         "zmin": 5.0,                # min redshift
         "zmax": 50.0,               # max redshift (not tested below 40)
         "Nz": 100,                  # Nb of redshift bins
@@ -41,9 +42,14 @@ def cosmo_par():
         "Om": 0.315,
         "Ob": 0.049,
         "s8": 0.83,
+        "As": 2.089e-9,
         "h0": 0.673,
         "ns": 0.963,
+        "YHe": 0.2425,
+        "mnu": 0.06,
+        "tau_reio": 0.052,
         "Tcmb": 2.72,
+        "rhoc": 2.775e11, #critical density at z=0 [[h^2 Msun/Mpc^3] 
         }
     return Bunch(par)
 

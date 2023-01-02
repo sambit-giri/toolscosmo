@@ -1,5 +1,6 @@
 from . import param, cosmo, constants
 from . import mass_accretion, source_model, luminosity_function
+from . import run_BoltzmannSolver
 
 from .param import *
 from .cosmo import *
