@@ -6,7 +6,8 @@ FROM THE HALO MASS FUNCTION (E.G. GENMASSFCT.PY)
 """
 
 import numpy as np
-import genmassfct as gmf
+# import genmassfct as gmf
+from . import massfct as gmf
 
 from scipy.integrate import cumtrapz, trapz, quad
 from scipy.interpolate import splrep,splev
@@ -179,9 +180,10 @@ def collapsed_fraction(type_of_flux,param):
     h0   = param.cosmo.h0
 
     #parameters of gmf
-    par = gmf.par()
+    # par = gmf.par()
+    par = param
     par.file.psfct    = param.file.ps
-    par.window.window = param.mf.window
+    # par.window.window = param.mf.window
     par.mf.c          = param.mf.c
     par.mf.q          = param.mf.q
     par.mf.p          = param.mf.p

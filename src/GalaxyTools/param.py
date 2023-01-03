@@ -13,7 +13,7 @@ class Bunch(object):
 
 def code_par():
     par = {
-        "verbose": False,
+        "verbose": True,
         "zmin": 5.0,                # min redshift
         "zmax": 50.0,               # max redshift (not tested below 40)
         "Nz": 100,                  # Nb of redshift bins
@@ -34,6 +34,7 @@ def code_par():
         "approx_heating": 'False',  # approx xray heating
         "MA": 'EPS',                # mass accretion model [EPS,EXP,AM]
         "sfrd_from_MA": True,       # True/False: calculate sfrd using mass accretion / time derivative of fcoll 
+        "bias": 'ellipsoidal',      # [ellipsoidal/spherical/tinker/jing]
         }
     return Bunch(par)
 
@@ -42,7 +43,7 @@ def cosmo_par():
         "Om": 0.315,
         "Ob": 0.049,
         "s8": 0.83,
-        "As": 2.089e-9,
+        "As": None, #2.089e-9,
         "h0": 0.673,
         "ns": 0.963,
         "YHe": 0.2425,
@@ -50,6 +51,7 @@ def cosmo_par():
         "tau_reio": 0.052,
         "Tcmb": 2.72,
         "rhoc": 2.775e11, #critical density at z=0 [[h^2 Msun/Mpc^3] 
+        "plin": None,
         }
     return Bunch(par)
 
@@ -132,6 +134,7 @@ def lf_par():
 def io_files():
     par = {
         "ps" : 'CDM_Planck15_pk.dat',
+        "varfct": 'var.dat',
         "tau": 'tabulated_tau.npz',
         }
     return Bunch(par)
