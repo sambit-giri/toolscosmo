@@ -28,8 +28,8 @@ def mass_accretion(GS,param):
 
     if(model == 'EPS'):
         M_accr, dMdt_accr = mass_accretion_EPS(GS,param)
-    elif(model == 'LC'):
-        M_accr, dMdt_accr = mass_accretion_LC(GS,param)
+    # elif(model == 'LC'):
+    #     M_accr, dMdt_accr = mass_accretion_LC(GS,param)
     elif (model == 'EXP'):
         M_accr, dMdt_accr = mass_accretion_EXP(GS,param)
     elif (model == 'AM'):
@@ -65,7 +65,7 @@ def mass_accretion_EPS(GS,param):
     var_tck = splrep(M0,var0)
 
     #free parameter
-    fM = 0.6 #0.5
+    fM = param.MA.Q_EPS #0.6 #0.5
     if (Mmin<fM*param.code.Mmin):
         print("WARNING: choose smaller Mmin or larger Mdark")
     
@@ -105,7 +105,7 @@ def mass_accretion_EXP(GS,param):
     mm = GS['m']
     M0 = mm[np.where(mm>Mmin)]
 
-    alpha = 0.79
+    alpha = param.MA.alpha_EXP # 0.79
 
     Raccr    = np.zeros((len(zz),len(M0)))
     dMaccrdz = np.zeros((len(zz),len(M0)))
@@ -131,7 +131,7 @@ def mass_accretion_EXPt(GS,param):
     mm = GS['m']
     M0 = mm[np.where(mm>Mmin)]
 
-    alpha = 1e-7  #[1/yr]
+    alpha = param.MA.alpha_EXPt # 1e-7  #[1/yr]
 
     dMaccrdt = np.full((len(zz),len(M0)),alpha)*M0[None,:]
     Raccr = np.ones((len(zz),len(M0)))

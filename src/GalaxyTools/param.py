@@ -16,6 +16,7 @@ def code_par():
         "verbose": True,
         "zmin": 5.0,                # min redshift
         "zmax": 50.0,               # max redshift (not tested below 40)
+        "zbin": 'log',              #lin or log
         "Nz": 100,                  # Nb of redshift bins
         "zstar": 35,                # redshift of first star formation
         "Mdark": 1e5,               # lowest mass of star formation 
@@ -23,6 +24,9 @@ def code_par():
         "dz_prime_xray": 0.1,       # z_prime binning xray (should not be larger than 0.1)
         "kmin": 0.001,              # min k-value
         "kmax": 10,                 # max k-value
+        "rmin": 0.002,              # min k-value
+        "rmax": 25,                 # max k-value
+        "Nrbin": 100,               # Nb of r-bins
         "Nk": 100,                  # Nb of k-bins
         "Emin": 200,                # min heating energy,
         "Emax": 2000,               # max heating energy,
@@ -57,12 +61,20 @@ def cosmo_par():
 
 def mf_par():
     par = {
-        "window": 'tophat',  # [sharpk,smoothk,tophat]
+        "window": 'tophat',   # [sharpk,smoothk,tophat]
         "dc": 1.675,          # delta_c
         "p": 0.3,             # p par of f(nu) [0.3,0.3,1] for [ST,smoothk,PS]
-        "q": 0.85,             # q par of f(nu) [0.707,1,1] for [ST,smoothk,PS]
+        "q": 0.85,            # q par of f(nu) [0.707,1,1] for [ST,smoothk,PS]
         "c": 2.5,             # prop constant for mass [only read for sharpk,smoothk]
         "beta": 4.0,          # additional free param for smoothk
+        }
+    return Bunch(par)
+
+def mar_par():
+    par = {
+        "alpha_EXP" : 0.79,
+        "alpha_EXPt": 1e-7,
+        "Q_EPS": 0.6,
         }
     return Bunch(par)
 
@@ -151,6 +163,7 @@ def par():
         "lyal": lyal_par(),
         "xray": xray_par(),
         "reio": reio_par(),
-        "lf": lf_par()
+        "lf": lf_par(),
+        "MA": mar_par(),
         })
     return par

@@ -1,14 +1,18 @@
 import numpy as np
 from scipy.integrate import quad, simps
 from scipy.interpolate import splev, splrep, interp1d
+import matplotlib.pyplot as plt
 
 from . import constants as const
 from .source_model import fstar, fstar_tilde, fesc, fesc_mean, collapsed_fraction, eps_xray, eps_lyal
 from .mass_accretion import mass_accretion
+from .cosmo import hubble
+from .constants import *
 
 def mass_fct(param, output={}):
     zz, mm, var, dlnvardlnm, dndlnm, bias, fcoll_xray, dfcolldz_xray, sfrd_from_fcoll_xray = collapsed_fraction('xray',param)
-    out = {'z': zz,
+    out = {
+            'z': zz,
             'm': mm,   # h^-1 Msun
             'var': var, 
             'dlnvardlnm': dlnvardlnm, 
@@ -19,10 +23,12 @@ def mass_fct(param, output={}):
     return output
 
 def mass_accr(param, output={}):
+    if param.code.verbose: print('MA is modelled with the {} method'.format(param.code.MA))
     try:
         M_accr, dMdt_accr = mass_accretion(output,param)
     except:
         hmf = mass_fct(param)
+        output.update(hmf)
         M_accr, dMdt_accr = mass_accretion(hmf,param)
     out = {'M_accr': M_accr,      # h^-1 Msun
            'dMdt_accr': dMdt_accr # h^-1 Msun yr^-1
@@ -49,8 +55,12 @@ class UVLF:
         output.update(mass_accr(param,output=output))
         fstars = fstar(output['z'], output['m'], 'lf', param)
         output.update({'fstar': fstars})
-        M_AB = M0 - 2.5*(np.log10(fstars) + np.log10(param.cosmo.Ob/param.cosmo.Om) +\
-                np.log10(output['dMdt_accr']) - np.log10(kappa) - np.log10(param.cosmo.h0)
+        # idx_abv = np.argmin(np.abs(np.log10(M0[:,None]/M_accr[i,:])),axis=1)
+        dMhdt_dot = param.MA.alpha_EXP * output['m'] * (output['z'][:,None]+1) * hubble(output['z'][:,None],param) * sec_per_yr / km_per_Mpc
+        # print(dMhdt_dot.shape)
+        M_AB = M0 - 2.5*(np.log10(fstars) + np.log10(param.cosmo.Ob/param.cosmo.Om) 
+                + np.log10(dMhdt_dot) #np.log10(output['dMdt_accr']) 
+                - np.log10(kappa) - np.log10(param.cosmo.h0)
                 )
         output.update({'M_AB': M_AB})
         self.output = output
@@ -91,6 +101,7 @@ class UVLF:
         zz = output['z']
         mm = output['m']
         dndlnm = output['dndlnm']
+        # print(output.keys())
         Muv_edges = np.linspace(param.lf.Muv_min,param.lf.Muv_max,param.lf.NMuv+1)
         Muv_mean  = Muv_edges[1:]/2.+Muv_edges[:-1]/2.
         phi_uv = np.zeros((len(zz),len(Muv_mean)))
@@ -99,8 +110,8 @@ class UVLF:
         dMhdMab = -dMh[None,:]/dMab #dMh[None,:]/dMab
         for i in range(zz.size):
             dndm_fct   = interp1d(M_AB[i,:], dndlnm[i,:]/mm, fill_value='extrapolate')
-            dMuvdm_fct = interp1d(M_AB[i,1:]/2+M_AB[i,:-1]/2, dMhdMab[i,:], fill_value='extrapolate')
-            phi_uv[i,:] = param.lf.eps_sys*dndm_fct(Muv_mean) * dMuvdm_fct(Muv_mean)
+            dmdMuv_fct = interp1d(M_AB[i,1:]/2+M_AB[i,:-1]/2, dMhdMab[i,:], fill_value='extrapolate')
+            phi_uv[i,:] = param.lf.eps_sys*dndm_fct(Muv_mean) * dmdMuv_fct(Muv_mean)
         output['uvlf'] = {'Muv_mean': Muv_mean, 'phi_uv': phi_uv}
         self.output = output
         return output 
