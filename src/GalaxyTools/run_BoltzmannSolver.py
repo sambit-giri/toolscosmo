@@ -147,7 +147,7 @@ def run_class(param, **info):
                         'P_k_max_h/Mpc': param.code.kmax, 
                         'z_max_pk': param.code.zmax, 
                         'output': 'mPk', 
-                        'k_per_decade_for_pk': info.get('k_per_decade_for_pk', 5)
+                        'k_per_decade_for_pk': info.get('k_per_decade_for_pk', 10)
                         }
     k = 10**np.linspace(np.log10(param.code.kmin),np.log10(param.code.kmax),param.code.Nk)
     class_ = ClassModule(cosmo, k=k, inputs_class=inputs_class, verbose=param.code.verbose)
