@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from . import constants as const
 from .source_model import fstar, fstar_tilde, fesc, fesc_mean, collapsed_fraction, eps_xray, eps_lyal
 from .mass_accretion import mass_accretion
-from .cosmo import hubble
+from .cosmo import hubble, get_Plin
 from .constants import *
 
 def mass_fct(param, output={}):
@@ -38,7 +38,8 @@ def mass_accr(param, output={}):
 
 
 class UVLF:
-    def __init__(self, param):
+    def __init__(self, param, **info):
+        if param.cosmo.plin is None: param.cosmo.plin = get_Plin(param, **info)
         self.param = param 
         self.output = {}
 

@@ -207,7 +207,7 @@ def collapsed_fraction(type_of_flux,param):
     else:
         print("ERROR: Window for massfct does not exist!")
         exit()
-
+    
     #calculate mass function with gmf for all redshifts
     mm, zz, dndlnm = gmf.dndlnm(par)
 

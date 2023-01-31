@@ -49,9 +49,9 @@ def dndlnm(param):
     Om     = param.cosmo.Om
     rhoc   = param.cosmo.rhoc
     dc     = param.mf.dc
-
+    
     rbin, var, dlnvardlnr = variance(param)
-
+    
     if (window == 'tophat' or window == 'gaussian'):
         mbin = 4*np.pi*Om*rhoc*rbin**3/3
 
