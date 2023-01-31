@@ -40,7 +40,7 @@ def mass_accr(param, output={}):
 class UVLF:
     def __init__(self, param, **info):
         if param.cosmo.plin is None: param.cosmo.plin = get_Plin(param, **info)
-        self.param = param 
+        self.param = param; # print(self.param.cosmo.Om)
         self.output = {}
 
     def Muv(self, M0=51.6, kappa=1.15e-28):
