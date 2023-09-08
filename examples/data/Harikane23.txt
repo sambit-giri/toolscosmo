@@ -1,3 +1,8 @@
+# Data from TABLE 7 of https://arxiv.org/pdf/2208.01612.pdf
+# exact std_Muv were not provided
+# Table 3,4,5 give the exact Muv along with errors
+# Pessimistic std_Muv=0.2
+# delta_z=1.5 for z=9; delta_z=2 for z=12; delta_z=4 for z=16
 # z   Muv   std    phi    +std     -std     ## Upper limits not included
 9.00 -21.03 0.00 4.00e-5 +9.42e-5 -3.85e-5
 9.00 -20.03 0.00 4.08e-5 +9.60e-5 -3.92e-5
