@@ -19,14 +19,37 @@ def rhoc_of_z(z,param):
     return rhoc0*(Om*(1.0+z)**3.0 + Ol)/(1.0+z)**3.0
 
 
+def Ez_model(param):
+    """
+    Normalised Hubble parameter.
+    Exotic dark energy models can be defined here.
+    """
+    Om = param.cosmo.Om
+    Ogamma = param.cosmo.Ogamma
+    Ol = 1.0-Om-Ogamma # Flat universe assumption
+    if param.DE.name.lower()=='wcdm':
+        w  = param.DE.w
+        Ez = lambda z: (Om*(1+z)**3 + Ogamma*(1+z)**4 + Ol*(1+z)**(3*(1+w)))**0.5
+    elif param.DE.name.lower()=='growing_neutrino_mass':
+        Onu  = param.DE.Onu
+        Oede = param.DE.Oede
+        z2a  = lambda z: 1/(1+z)
+        Ods1 = lambda z: (Oede*z2a(z)**3+2*Onu*(z2a(z)**1.5-z2a(z)**3))/(1-Oede*(1-z2a(z)**3)+2*Onu*(z2a(z)**1.5-z2a(z)**3))
+        Ods  = np.vectorize(lambda z: Ods1(z) if Oede<Ods1(z)<1 else Oede)
+        Ez = lambda z: Om*z2a(z)**-1/(1-Ods(z))
+    else:
+        print('Setting w=-1 in wCDM cosmology')
+        w  = -1 
+        Ez = lambda z: (Om*(1+z)**3 + Ogamma*(1+z)**4 + Ol*(1+z)**(3*(1+w)))**0.5
+    return Ez
+
 def hubble(z,param):
     """
     Hubble parameter
     """
-    Om = param.cosmo.Om
-    Ol = 1.0-Om
     H0 = 100.0*param.cosmo.h0
-    return H0 * (Om*(1+z)**3 + (1.0 - Om - Ol)*(1+z)**2 + Ol)**0.5
+    Ez = Ez_model(param)
+    return H0 * Ez(z)
     
 
 def growth_factor(z, param):

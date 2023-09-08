@@ -46,6 +46,8 @@ def cosmo_par():
     par = {
         "Om": 0.315,
         "Ob": 0.049,
+        "Ogamma": 5.4e-5,
+        #"w" : -1.0,
         "s8": 0.83,
         "As": None, #2.089e-9,
         "h0": 0.673,
@@ -58,6 +60,22 @@ def cosmo_par():
         "plin": None,
         }
     return Bunch(par)
+
+def de_par(name):
+    if name.lower()=='wcdm':
+        par = {
+            "name": name,
+            "w": -1.0,
+            }
+    elif name.lower()=='growing_neutrino_mass':
+        par = {
+            "name": name,
+            "Onu" : 0.02,
+            "Oede": 0.03,
+            }
+    else:
+        print('{} is unknown DE model'.format(name))
+    return Bunch(par) 
 
 def mf_par():
     par = {
@@ -152,7 +170,7 @@ def io_files():
     return Bunch(par)
 
 
-def par():
+def par(DE='wCDM'):
     par = Bunch({
         "cosmo": cosmo_par(),
         "file": io_files(),
@@ -165,5 +183,6 @@ def par():
         "reio": reio_par(),
         "lf": lf_par(),
         "MA": mar_par(),
+        "DE": de_par(DE),
         })
     return par
