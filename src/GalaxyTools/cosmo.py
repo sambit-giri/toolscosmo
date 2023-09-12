@@ -33,14 +33,13 @@ def Ez_model(param):
     elif param.DE.name.lower()=='growing_neutrino_mass':
         Onu  = param.DE.Onu
         Oede = param.DE.Oede
+        Ods0 = Ol #1-param.cosmo.Om
         z2a  = lambda z: 1/(1+z)
-        Ods1 = lambda z: (Oede*z2a(z)**3+2*Onu*(z2a(z)**1.5-z2a(z)**3))/(1-Oede*(1-z2a(z)**3)+2*Onu*(z2a(z)**1.5-z2a(z)**3))
+        Ods1 = lambda z: (Ods0*z2a(z)**3+2*Onu*(z2a(z)**1.5-z2a(z)**3))/(1-Ods0*(1-z2a(z)**3)+2*Onu*(z2a(z)**1.5-z2a(z)**3))
         Ods  = np.vectorize(lambda z: Ods1(z) if Oede<Ods1(z)<1 else Oede)
         Ez = lambda z: Om*z2a(z)**-1/(1-Ods(z))
     else:
-        print('Setting w=-1 in wCDM cosmology')
-        w  = -1 
-        Ez = lambda z: (Om*(1+z)**3 + Ogamma*(1+z)**4 + Ol*(1+z)**(3*(1+w)))**0.5
+        Ez = lambda z: (Om*(1+z)**3 + Ogamma*(1+z)**4 + Ol)**0.5
     return Ez
 
 def hubble(z,param):

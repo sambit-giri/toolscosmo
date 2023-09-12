@@ -62,7 +62,11 @@ def cosmo_par():
     return Bunch(par)
 
 def de_par(name):
-    if name.lower()=='wcdm':
+    if name.lower()=='lcdm':
+        par = {
+            "name": name,
+            }
+    elif name.lower()=='wcdm':
         par = {
             "name": name,
             "w": -1.0,
@@ -70,8 +74,8 @@ def de_par(name):
     elif name.lower()=='growing_neutrino_mass':
         par = {
             "name": name,
-            "Onu" : 0.02,
-            "Oede": 0.03,
+            "Onu" : 0.2,
+            "Oede": 0.2,
             }
     else:
         print('{} is unknown DE model'.format(name))
@@ -170,7 +174,7 @@ def io_files():
     return Bunch(par)
 
 
-def par(DE='wCDM'):
+def par(DE='LCDM'):
     par = Bunch({
         "cosmo": cosmo_par(),
         "file": io_files(),
