@@ -72,6 +72,18 @@ def comoving_distance(z,param):
     """
     return cumtrapz(c/hubble(z,param),z,initial=0)  # [Mpc]
 
+def luminosity_distance(z,param):
+    """
+    Luminosity distance between z[0] and z[-1]
+    """
+    return comoving_distance(z,param)*(1+z)         # [Mpc]
+
+def distance_modulus(z,param): 
+    """
+    Distance modulus between z[0] and z[-1]
+    """
+    return 5*np.log10(luminosity_distance(z,param)/10)+25
+
 
 def delta_comoving_distance(z0,z1,param):
     """

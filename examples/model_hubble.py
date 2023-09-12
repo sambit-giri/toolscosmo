@@ -7,7 +7,8 @@ par_lcdm = GalaxyTools.par('lcdm')
 par = GalaxyTools.par('wcdm')
 par_growing_nu = GalaxyTools.par('growing_neutrino_mass')
 
-zs = 10**np.linspace(-2,2,100)
+# zs = 10**np.linspace(-2,2,100)
+zs = 10**np.linspace(-2,np.log10(7),100)
 
 # fig, ax = plt.subplots(1,1,figsize=(6,5))
 # ax.set_title('Normalised Hubble', fontsize=15)
@@ -86,21 +87,18 @@ ax.set_ylabel('$D_L(z)$', fontsize=15)
 plt.tight_layout()
 plt.show()
 
-distance_modulus = lambda z, par: 5*np.log10(GalaxyTools.comoving_distance(z,par)/10)+25
-
-zs = 10**np.linspace(-2,np.log10(7),100)
 
 fig, ax = plt.subplots(1,1,figsize=(6,5))
 ax.set_title('Distance modulus', fontsize=15)
 par.DE.w = -1.0
-ax.plot(zs, distance_modulus(zs,par), lw=3, ls='-', label='$\omega={}$,WDM'.format(par.DE.w))
+ax.plot(zs, GalaxyTools.distance_modulus(zs,par), lw=3, ls='-', label='$\omega={}$,WDM'.format(par.DE.w))
 par_growing_nu.DE.Onu  = 0.2
 par_growing_nu.DE.Oede = 0.1
-ax.plot(zs, distance_modulus(zs,par_growing_nu), lw=3, ls='--', 
+ax.plot(zs, GalaxyTools.distance_modulus(zs,par_growing_nu), lw=3, ls='--', 
             label=r'$\Omega_\nu={}$,$\Omega_e={}$'.format(par_growing_nu.DE.Onu,par_growing_nu.DE.Oede))
 par_growing_nu.DE.Onu  = 0.2
 par_growing_nu.DE.Oede = 0.2
-ax.plot(zs, distance_modulus(zs,par_growing_nu), lw=3, ls=':', 
+ax.plot(zs, GalaxyTools.distance_modulus(zs,par_growing_nu), lw=3, ls=':', 
             label=r'$\Omega_\nu={}$,$\Omega_e={}$'.format(par_growing_nu.DE.Onu,par_growing_nu.DE.Oede))
 ax.legend()
 ax.set_xlabel('$z$', fontsize=15)
