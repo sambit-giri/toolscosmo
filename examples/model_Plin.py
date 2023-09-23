@@ -1,6 +1,6 @@
 import numpy as np 
 import matplotlib.pyplot as plt 
-import GalaxyTools
+import tools_cosmo
 import scipy
 import pickle, os
 from copy import deepcopy
@@ -8,7 +8,7 @@ from copy import deepcopy
 lstyles = ['-', '--', '-.', ':']
 
 ## set parameters
-par = GalaxyTools.par()
+par = tools_cosmo.par()
 par.code.kmin = 0.001
 par.code.kmax = 200
 par.code.Nk   = 100
@@ -23,7 +23,7 @@ par.cosmo.h0 = 0.673
 par.cosmo.ns = 0.963
 par.cosmo.Tcmb = 2.72
 k_per_decade_for_pk = 5
-par.cosmo.plin = GalaxyTools.get_Plin(par, k_per_decade_for_pk=k_per_decade_for_pk)
+par.cosmo.plin = tools_cosmo.get_Plin(par, k_per_decade_for_pk=k_per_decade_for_pk)
 
 par1 = deepcopy(par)
 par2 = deepcopy(par)
@@ -31,9 +31,9 @@ par3 = deepcopy(par)
 par1.cosmo.Om = 0.20
 par2.cosmo.Om = 0.30
 par3.cosmo.Om = 0.40
-par1.cosmo.plin = GalaxyTools.get_Plin(par1, k_per_decade_for_pk=k_per_decade_for_pk)
-par2.cosmo.plin = GalaxyTools.get_Plin(par2, k_per_decade_for_pk=k_per_decade_for_pk)
-par3.cosmo.plin = GalaxyTools.get_Plin(par3, k_per_decade_for_pk=k_per_decade_for_pk)
+par1.cosmo.plin = tools_cosmo.get_Plin(par1, k_per_decade_for_pk=k_per_decade_for_pk)
+par2.cosmo.plin = tools_cosmo.get_Plin(par2, k_per_decade_for_pk=k_per_decade_for_pk)
+par3.cosmo.plin = tools_cosmo.get_Plin(par3, k_per_decade_for_pk=k_per_decade_for_pk)
 
 par4 = deepcopy(par)
 par5 = deepcopy(par)
@@ -41,9 +41,9 @@ par6 = deepcopy(par)
 par4.cosmo.s8 = 0.70
 par5.cosmo.s8 = 0.80
 par6.cosmo.s8 = 0.90
-par4.cosmo.plin = GalaxyTools.get_Plin(par4, k_per_decade_for_pk=k_per_decade_for_pk)
-par5.cosmo.plin = GalaxyTools.get_Plin(par5, k_per_decade_for_pk=k_per_decade_for_pk)
-par6.cosmo.plin = GalaxyTools.get_Plin(par6, k_per_decade_for_pk=k_per_decade_for_pk)
+par4.cosmo.plin = tools_cosmo.get_Plin(par4, k_per_decade_for_pk=k_per_decade_for_pk)
+par5.cosmo.plin = tools_cosmo.get_Plin(par5, k_per_decade_for_pk=k_per_decade_for_pk)
+par6.cosmo.plin = tools_cosmo.get_Plin(par6, k_per_decade_for_pk=k_per_decade_for_pk)
 
 W_kR = lambda k,R: 3*scipy.special.j1(k*R)/(k*R)
 sig8_window = lambda k, Pk: k**2/2/np.pi * Pk * W_kR(k,8)**2

@@ -8,13 +8,13 @@ from setuptools import setup, find_packages
 #from distutils.core import setup
 
 
-setup(name='GalaxyTools',
+setup(name='tools_cosmo',
       version='0.0.1',
       author='Sambit Giri',
       author_email='sambit.giri@su.se',
       packages=find_packages("src"),
       package_dir={"": "src"},
-      package_data={'GalaxyTools': ['input_data/*']},
+      package_data={'tools_cosmo': ['input_data/*']},
       install_requires=['numpy', 'scipy', 'matplotlib',
                         'pytest'],
       include_package_data=True,
