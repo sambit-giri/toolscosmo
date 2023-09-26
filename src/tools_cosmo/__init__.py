@@ -10,3 +10,4 @@ from .bias import *
 # from .source_model import *
 # from .constants import *
 from .luminosity_function import *
+from . import plotting_function

@@ -18,6 +18,31 @@ def rhoc_of_z(z,param):
     Ol = 1.0-Om
     return rhoc0*(Om*(1.0+z)**3.0 + Ol)/(1.0+z)**3.0
 
+def ez_grownu(z, om, omega_rad, omega_nu, oe):
+        # om, omega_nu, oe, h0 = theta
+        #omega_rad = 2.469e-5 * (H0/100.)**-2. * (1+0.2271*3.04)
+        rad_term = omega_rad * (1+z)**4.
+        ods = 1 - om - omega_rad
+        a = 1./(1+z)
+        aval = (1-oe)*(ods - 2*omega_nu)
+        cval = oe*(ods - 1)
+        bval = 2*omega_nu*(1 - oe)
+        nume = -bval + np.sqrt(bval**2. - 4.*aval*cval)
+        denom = 2.*aval
+        a_trans = pow(nume/denom, 2./3)
+        mat_term = om*(1+z)**3.
+        # print(omega_nu,oe,a)
+        if a > a_trans:
+            ttop = ods*a**3. + 2*omega_nu*(pow(a, 3./2) - a**3.)
+            tbot = 1 - ods *(1 - a**3) + 2 * omega_nu * (pow(a, 3./2) - a**3)
+            ods_a = ttop/tbot
+        elif a <=a_trans:
+            ods_a = oe
+        ezsq = (mat_term + rad_term)/(1-ods_a)
+        return np.sqrt(ezsq) #1./np.sqrt(ezsq)
+
+def Ez_growing_nu(z, Om0=0.315, Ok0=0.0, Or0=5.4e-5, Onu0=0.01, Oe0=0.01):
+     return np.vectorize(ez_grownu)(z, Om0, Or0, Onu0, Oe0)
 
 def Ez_model(param):
     """
@@ -31,13 +56,14 @@ def Ez_model(param):
         w  = param.DE.w
         Ez = lambda z: (Om*(1+z)**3 + Ogamma*(1+z)**4 + Ol*(1+z)**(3*(1+w)))**0.5
     elif param.DE.name.lower()=='growing_neutrino_mass':
-        Onu  = param.DE.Onu
-        Oede = param.DE.Oede
-        Ods0 = Ol #1-param.cosmo.Om
-        z2a  = lambda z: 1/(1+z)
-        Ods1 = lambda z: (Ods0*z2a(z)**3+2*Onu*(z2a(z)**1.5-z2a(z)**3))/(1-Ods0*(1-z2a(z)**3)+2*Onu*(z2a(z)**1.5-z2a(z)**3))
-        Ods  = np.vectorize(lambda z: Ods1(z) if Oede<Ods1(z)<1 else Oede)
-        Ez = lambda z: Om*z2a(z)**-1/(1-Ods(z))
+        # Onu  = param.DE.Onu
+        # Oede = param.DE.Oede
+        # Ods0 = Ol #1-param.cosmo.Om
+        # z2a  = lambda z: 1/(1+z)
+        # Ods1 = lambda z: (Ods0*z2a(z)**3+2*Onu*(z2a(z)**1.5-z2a(z)**3))/(1-Ods0*(1-z2a(z)**3)+2*Onu*(z2a(z)**1.5-z2a(z)**3))
+        # Ods  = np.vectorize(lambda z: Ods1(z) if Oede<Ods1(z)<1 else Oede)
+        # Ez = lambda z: Om*z2a(z)**-1/(1-Ods(z))
+        Ez = lambda z: Ez_growing_nu(z, Om0=Om, Ok0=0.0, Or0=Ogamma, Onu0=param.DE.Onu, Oe0=param.DE.Oede)
     else:
         Ez = lambda z: (Om*(1+z)**3 + Ogamma*(1+z)**4 + Ol)**0.5
     return Ez

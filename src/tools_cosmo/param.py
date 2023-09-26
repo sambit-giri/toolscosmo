@@ -74,8 +74,8 @@ def de_par(name):
     elif name.lower()=='growing_neutrino_mass':
         par = {
             "name": name,
-            "Onu" : 0.2,
-            "Oede": 0.2,
+            "Onu" : 0.0,
+            "Oede": 0.0,
             }
     else:
         print('{} is unknown DE model'.format(name))
