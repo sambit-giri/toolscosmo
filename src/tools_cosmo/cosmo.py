@@ -55,6 +55,11 @@ def Ez_model(param):
     if param.DE.name.lower()=='wcdm':
         w  = param.DE.w
         Ez = lambda z: (Om*(1+z)**3 + Ogamma*(1+z)**4 + Ol*(1+z)**(3*(1+w)))**0.5
+    if param.DE.name.lower()=='cpl':
+        w0 = param.DE.w0
+        wa = param.DE.wa
+        Ez = lambda z: (Ogamma*(1+z)**4 + Om*(1+z)**3  \
+                + Ol*(1+z)**(3*(1+w0+wa))*np.exp(-3*wa*z/(1+z)))**0.5
     elif param.DE.name.lower()=='growing_neutrino_mass':
         # Onu  = param.DE.Onu
         # Oede = param.DE.Oede

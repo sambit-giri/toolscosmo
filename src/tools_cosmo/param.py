@@ -71,6 +71,12 @@ def de_par(name):
             "name": name,
             "w": -1.0,
             }
+    elif name.lower()=='cpl':
+        par = {
+            "name": name,
+            "w0": -1.0,
+            "wa": 0.00,
+            }
     elif name.lower()=='growing_neutrino_mass':
         par = {
             "name": name,
