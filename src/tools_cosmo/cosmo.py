@@ -101,19 +101,24 @@ def comoving_distance(z,param):
     """
     Comoving distance between z[0] and z[-1]
     """
-    return cumtrapz(c/hubble(z,param),z,initial=0)  # [Mpc]
+    if isinstance(z,list): z = np.array(z)
+    # dcom = cumtrapz(c/hubble(z,param),z,initial=0)  # [Mpc]
+    dcom = lambda z: quad(lambda x: c/hubble(x,param), 0, z)[0]
+    return np.vectorize(dcom)(z)
 
 def luminosity_distance(z,param):
     """
     Luminosity distance between z[0] and z[-1]
     """
+    if isinstance(z,list): z = np.array(z)
     return comoving_distance(z,param)*(1+z)         # [Mpc]
 
 def distance_modulus(z,param): 
     """
     Distance modulus between z[0] and z[-1]
     """
-    return 5*np.log10(luminosity_distance(z,param)/10)+25
+    if isinstance(z,list): z = np.array(z)
+    return 5*np.log10(luminosity_distance(z,param))+25
 
 
 def delta_comoving_distance(z0,z1,param):
