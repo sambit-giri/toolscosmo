@@ -103,7 +103,9 @@ def comoving_distance(z,param):
     """
     if isinstance(z,list): z = np.array(z)
     # dcom = cumtrapz(c/hubble(z,param),z,initial=0)  # [Mpc]
-    dcom = lambda z: quad(lambda x: c/hubble(x,param), 0, z)[0]
+    # dcom = lambda z: quad(lambda x: c/hubble(x,param), 0, z)[0]
+    zspace = lambda z: np.logspace(-3,np.log10(z))
+    dcom = lambda z: trapz(c/hubble(zspace(z),param), zspace(z))
     return np.vectorize(dcom)(z)
 
 def luminosity_distance(z,param):

@@ -14,7 +14,7 @@ def run_camb(param, **info):
     h  = param.cosmo.h0
     omc = param.cosmo.Om 
     omb = param.cosmo.Ob 
-    omk = param.cosmo.Ok
+    omk = 0.0 #param.cosmo.Ok # Assuming flat cosmology
     mnu = param.cosmo.mnu
     w0  = param.cosmo.w0 
     wa = param.cosmo.wa 
