@@ -12,12 +12,12 @@ camb.set_feedback_level(0)
 def run_camb(param, **info):
     # Cosmological parameters
     h  = param.cosmo.h0
-    omc = param.cosmo.Om 
+    omc = param.cosmo.Om - param.cosmo.Ob
     omb = param.cosmo.Ob 
     omk = 0.0 #param.cosmo.Ok # Assuming flat cosmology
     mnu = param.cosmo.mnu
-    w0  = param.cosmo.w0 
-    wa = param.cosmo.wa 
+    w0 = param.DE.w0 
+    wa = param.DE.wa 
     ns = param.cosmo.ns 
     As = param.cosmo.As 
 
