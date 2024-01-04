@@ -45,7 +45,8 @@ class UVLF:
 
     def Muv(self, M0=51.6, kappa=1.15e-28):
         '''
-        See eq (1) in Sahlen & Zackrisson (2021) or eqs (12,13) in Park et al. (2019).
+        See eq (1) in Sahlen & Zackrisson (2021) or 
+        eqs (12,13) in Park et al. (2019).
         '''
         param  = self.param
         output = self.output
@@ -57,10 +58,15 @@ class UVLF:
         fstars = fstar(output['z'], output['m'], 'lf', param)
         output.update({'fstar': fstars})
         # idx_abv = np.argmin(np.abs(np.log10(M0[:,None]/M_accr[i,:])),axis=1)
-        dMhdt_dot = param.MA.alpha_EXP * output['m'] * (output['z'][:,None]+1) * hubble(output['z'][:,None],param) * sec_per_yr / km_per_Mpc
+
+        # print(f'{param.code.MA} in M_AB')
+        # M_accr, dMdt_accr = mass_accretion(output,param)
+        # dMhdt_dot = param.MA.alpha_EXP * output['m'] * (output['z'][:,None]+1) * hubble(output['z'][:,None],param) * sec_per_yr / km_per_Mpc
         # print(dMhdt_dot.shape)
+
         M_AB = M0 - 2.5*(np.log10(fstars) + np.log10(param.cosmo.Ob/param.cosmo.Om) 
-                + np.log10(dMhdt_dot) #np.log10(output['dMdt_accr']) 
+                #+ np.log10(dMhdt_dot) 
+                + np.log10(output['dMdt_accr']) 
                 - np.log10(kappa) - np.log10(param.cosmo.h0)
                 )
         output.update({'M_AB': M_AB})
@@ -92,7 +98,7 @@ class UVLF:
         self.output = output
         return output 
 
-    def UV_luminosity_def(self):
+    def UV_luminosity_def(self, **kwargs):
         param  = self.param
         output = self.output
         try: M_AB = output['M_AB']
@@ -101,8 +107,13 @@ class UVLF:
             M_AB = output['M_AB']
         zz = output['z']
         mm = output['m']
-        dndlnm = output['dndlnm']
+        f_duty = kwargs.get('f_duty')
+        if f_duty=='EXP': f_duty = lambda M: np.exp(-param.lf.Mt_sfe/M)
+        else: f_duty = lambda M: np.ones_like(M)
+        output['f_duty'] = f_duty
+        dndlnm = output['dndlnm']*f_duty(output['m'])
         # print(output.keys())
+
         Muv_edges = np.linspace(param.lf.Muv_min,param.lf.Muv_max,param.lf.NMuv+1)
         Muv_mean  = Muv_edges[1:]/2.+Muv_edges[:-1]/2.
         phi_uv = np.zeros((len(zz),len(Muv_mean)))
@@ -112,14 +123,15 @@ class UVLF:
         for i in range(zz.size):
             dndm_fct   = interp1d(M_AB[i,:], dndlnm[i,:]/mm, fill_value='extrapolate')
             dmdMuv_fct = interp1d(M_AB[i,1:]/2+M_AB[i,:-1]/2, dMhdMab[i,:], fill_value='extrapolate')
-            phi_uv[i,:] = param.lf.eps_sys*dndm_fct(Muv_mean) * dmdMuv_fct(Muv_mean)
-        output['uvlf'] = {'Muv_mean': Muv_mean, 'phi_uv': phi_uv}
+            phi_uv_fct  = lambda muv: param.lf.eps_sys*dndm_fct(muv)*dmdMuv_fct(muv)
+            phi_uv[i,:] = phi_uv_fct(Muv_mean)
+        output['uvlf'] = {'Muv_mean': Muv_mean, 'phi_uv': phi_uv,}
         self.output = output
         return output 
 
-    def UV_luminosity(self):
-        # return self.UV_luminosity_SZ21_eq1()
-        return self.UV_luminosity_def()
+    def UV_luminosity(self, **kwargs):
+        # return self.UV_luminosity_SZ21_eq1(**kwargs)
+        return self.UV_luminosity_def(**kwargs)
 
 
 

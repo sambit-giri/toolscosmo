@@ -36,8 +36,8 @@ def mass_accretion(GS,param):
         M_accr, dMdt_accr = mass_accretion_AM(GS,param)
     elif (model == 'EXPt'):
         M_accr, dMdt_accr = mass_accretion_EXPt(GS,param)
-    elif (model == 'TEST'):
-        M_accr, dMdt_accr = mass_accretion_TEST(GS,param)
+    elif (model == '21cmfast') or model.lower()=='hubblescale':
+        M_accr, dMdt_accr = mass_accretion_HUBBLEscale(GS,param)
     else:
         print("ABORT: selected mass accretion model does not exist!")
 
@@ -116,7 +116,6 @@ def mass_accretion_EXP(GS,param):
         dMaccrdt[i,:] = - dMaccrdz[i,:] * (1+zz[i]) * hubble(zz[i],param) * sec_per_yr / km_per_Mpc
 
     return Raccr*M0, dMaccrdt
-
 
 def mass_accretion_EXPt(GS,param):
     """
@@ -221,10 +220,11 @@ def mass_accretion_AM(GS,param):
     return M_accretion, dMdt_accretion
 
 
-
-
-def mass_accretion_TEST(GS,param):
+def mass_accretion_HUBBLEscale(GS,param):
     """
+    Park et al. (2019) model accretion by parameterising it in terms of
+    the Hubble timescale (1/H(z)), which is implemented in 21cmfast.
+
     21cmfast: dMaccdt = H(z)/tstar * Mh
               dMaccdz = -1/(1+z)/tstar * Mh
               dM/M = - 1/tstar * dz/(1+z)
@@ -239,7 +239,7 @@ def mass_accretion_TEST(GS,param):
     mm = GS['m']
     M0 = mm[np.where(mm>Mmin)]
 
-    tstar = 0.5
+    tstar = param.MA.t_star #0.5
 
     Raccr    = np.zeros((len(zz),len(M0)))
     dMaccrdz = np.zeros((len(zz),len(M0)))

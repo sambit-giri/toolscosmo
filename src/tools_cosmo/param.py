@@ -102,7 +102,8 @@ def mar_par():
     par = {
         "alpha_EXP" : 0.79,
         "alpha_EXPt": 1e-7,
-        "Q_EPS": 0.6,
+        "Q_EPS" : 0.6,
+        "t_star": 0.5,
         }
     return Bunch(par)
 
