@@ -61,12 +61,12 @@ class UVLF:
 
         # print(f'{param.code.MA} in M_AB')
         # M_accr, dMdt_accr = mass_accretion(output,param)
-        # dMhdt_dot = param.MA.alpha_EXP * output['m'] * (output['z'][:,None]+1) * hubble(output['z'][:,None],param) * sec_per_yr / km_per_Mpc
+        dMhdt_dot = param.MA.alpha_EXP * output['m'] * (output['z'][:,None]+1) * hubble(output['z'][:,None],param) * sec_per_yr / km_per_Mpc
         # print(dMhdt_dot.shape)
 
         M_AB = M0 - 2.5*(np.log10(fstars) + np.log10(param.cosmo.Ob/param.cosmo.Om) 
-                #+ np.log10(dMhdt_dot) 
-                + np.log10(output['dMdt_accr']) 
+                + np.log10(dMhdt_dot) 
+                #+ np.log10(output['dMdt_accr']) 
                 - np.log10(kappa) - np.log10(param.cosmo.h0)
                 )
         output.update({'M_AB': M_AB})
