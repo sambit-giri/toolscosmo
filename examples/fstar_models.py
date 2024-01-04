@@ -9,7 +9,7 @@ from scipy.interpolate import bisplev, bisplrep
 
 chdir = './'
 
-def model_uvlfs(**kwargs):
+def set_param(**kwargs):
     ## set parameters
     par = tools_cosmo.par(DE='cpl')
 
@@ -66,6 +66,10 @@ def model_uvlfs(**kwargs):
     par.lf.g3_sfe_nu = 0.0
     par.lf.g4_sfe_nu = 0.0
     
+    return par
+
+def model_uvlfs(**kwargs):
+    par = kwargs.get('param', set_param(**kwargs))    
     print_cosmo = kwargs.get('print_cosmo', False)
     if print_cosmo: 
         print(par.cosmo.__dict__)
@@ -79,10 +83,10 @@ def model_uvlfs(**kwargs):
     # print(out_lf.keys())
     return out_lf
 
-lf_EXP = model_uvlfs(MA='EXP', g1_sfe=-0.5, g2_sfe=0, g3_sfe=0, g4_sfe=0,
-                    Mt_sfe=3.365e8*2, Mp=6.73e9, f_duty='EXP')
-lf_21cmfast = model_uvlfs(MA='21cmfast', MA_param=0.3, g1_sfe=-0.5, g2_sfe=0, g3_sfe=0, g4_sfe=0,
-                    Mt_sfe=3.365e8*2, Mp=6.73e9, f_duty='EXP')
+lf_EXP = model_uvlfs(MA='EXP', g1_sfe=-0.5, g2_sfe=-0.5, g3_sfe=0, g4_sfe=0,
+                    Mt_sfe=3.365e8*2, Mp_sfe=6.73e9, f_duty='EXP')
+lf_21cmfast = model_uvlfs(MA='21cmfast', MA_param=0.3, g1_sfe=-0.5, g2_sfe=-0.5, g3_sfe=0, g4_sfe=0,
+                    Mt_sfe=3.365e8*2, Mp_sfe=6.73e9, f_duty='EXP')
 
 Mplot = [1e7,1e9,1e11,1e13]
 zplot = [5,8,10] #[6,9,12,15]
