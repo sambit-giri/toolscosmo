@@ -6,6 +6,8 @@ FUNCTIONS RELATED TO COSMOLOGY
 import numpy as np
 from scipy.integrate import cumtrapz, trapz, quad
 from scipy.interpolate import splrep,splev
+from astropy import cosmology, units
+
 from .constants import rhoc0,c
 from .run_BoltzmannSolver import *
 
@@ -49,6 +51,10 @@ def Ez_model(param):
     Normalised Hubble parameter.
     Exotic dark energy models can be defined here.
     """
+    if param.cosmo.use_astropy:
+        cosmo = astropy_cosmo(param).cosmo
+        Ez = lambda z: cosmo.efunc(z)
+        return Ez
     Om = param.cosmo.Om
     Ogamma = param.cosmo.Ogamma
     Ol = 1.0-Om-Ogamma # Flat universe assumption
@@ -62,13 +68,6 @@ def Ez_model(param):
         Ez = lambda z: (Ogamma*(1+z)**4 + Om*(1+z)**3  \
                 + Ol*(1+z)**(3*(1+w0+wa))*np.exp(-3*wa*z/(1+z)))**0.5
     elif param.DE.name.lower()=='growing_neutrino_mass':
-        # Onu  = param.DE.Onu
-        # Oede = param.DE.Oede
-        # Ods0 = Ol #1-param.cosmo.Om
-        # z2a  = lambda z: 1/(1+z)
-        # Ods1 = lambda z: (Ods0*z2a(z)**3+2*Onu*(z2a(z)**1.5-z2a(z)**3))/(1-Ods0*(1-z2a(z)**3)+2*Onu*(z2a(z)**1.5-z2a(z)**3))
-        # Ods  = np.vectorize(lambda z: Ods1(z) if Oede<Ods1(z)<1 else Oede)
-        # Ez = lambda z: Om*z2a(z)**-1/(1-Ods(z))
         Ez = lambda z: Ez_growing_nu(z, Om0=Om, Ok0=0.0, Or0=Ogamma, Onu0=param.DE.Onu, Oe0=param.DE.Oede)
     else:
         Ez = lambda z: (Om*(1+z)**3 + Ogamma*(1+z)**4 + Ol)**0.5
@@ -78,6 +77,9 @@ def hubble(z,param):
     """
     Hubble parameter
     """
+    if param.cosmo.use_astropy:
+        cosmo = astropy_cosmo(param).cosmo
+        return cosmo.H(z).value
     H0 = 100.0*param.cosmo.h0
     Ez = Ez_model(param)
     return H0 * Ez(z)
@@ -89,7 +91,6 @@ def growth_factor(z, param):
     z: array of redshifts from zmin to zmax
     """
     Om = param.cosmo.Om
-
     D0 = hubble(0,param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.01, 1, epsrel=5e-3, limit=100)[0]
     Dz = []
     for i in range(len(z)):
@@ -100,26 +101,38 @@ def growth_factor(z, param):
 
 def comoving_distance(z,param):
     """
-    Comoving distance between z[0] and z[-1]
+    Comoving distance between z=0 and z.
     """
+    if param.cosmo.use_astropy:
+        cosmo = astropy_cosmo(param).cosmo
+        return cosmo.comoving_distance(z).to('Mpc').value 
+    
     if isinstance(z,list): z = np.array(z)
     # dcom = cumtrapz(c/hubble(z,param),z,initial=0)  # [Mpc]
     # dcom = lambda z: quad(lambda x: c/hubble(x,param), 0, z)[0]
     zspace = lambda z: np.logspace(-3,np.log10(z))
-    dcom = lambda z: trapz(c/hubble(zspace(z),param), zspace(z))
+    dcom = lambda z: trapz(c/hubble(zspace(z),param), zspace(z)) if z>0 else 0
     return np.vectorize(dcom)(z)
 
 def luminosity_distance(z,param):
     """
-    Luminosity distance between z[0] and z[-1]
+    Luminosity distance between z=0 and z.
     """
+    if param.cosmo.use_astropy:
+        cosmo = astropy_cosmo(param).cosmo
+        return cosmo.luminosity_distance(z).to('Mpc').value 
+
     if isinstance(z,list): z = np.array(z)
     return comoving_distance(z,param)*(1+z)         # [Mpc]
 
 def distance_modulus(z,param): 
     """
-    Distance modulus between z[0] and z[-1]
+    Distance modulus between z=0 and z.
     """
+    if param.cosmo.use_astropy:
+        cosmo = astropy_cosmo(param).cosmo
+        return cosmo.distmod(z).to('mag').value 
+    
     if isinstance(z,list): z = np.array(z)
     return 5*np.log10(luminosity_distance(z,param))+25
 
@@ -274,3 +287,38 @@ def variance(param):
 
     return rbin, var, dlnvardlnr
 
+class astropy_cosmo:
+    '''
+    A class to use astropy as cosmological calculation.
+    '''
+    def __init__(self, param):
+        self.param = param
+        cosmo = self.set_model() 
+
+    def set_model(self, param=None):
+        if param is None: param = self.param
+        Om     = param.cosmo.Om
+        Ob     = param.cosmo.Ob
+        Ogamma = param.cosmo.Ogamma
+        Ode    = 'flat' if param.cosmo.Ode is None else param.cosmo.Ode
+        h0     = param.cosmo.h0 
+        if param.DE.name.lower()=='wcdm':
+            w  = param.DE.w
+            if Ode.lower()=='flat': cosmo = cosmology.FlatwCDM(h0*100, Om, w0=w)
+            else: cosmo = cosmology.wCDM(h0*100, Om, Ode, w0=w)
+        elif param.DE.name.lower()=='cpl':
+            w0 = param.DE.w0
+            wa = param.DE.wa
+            if Ode.lower()=='flat': cosmo = cosmology.Flatw0waCDM(h0*100, Om, w0=w0, wa=wa)
+            else: cosmo = cosmology.w0waCDM(h0*100, Om, Ode, w0=w0, wa=wa)
+        elif param.DE.name.lower()=='growing_neutrino_mass':
+            cosmo = None
+        elif param.DE.name.lower()=='lcdm':
+            if Ode.lower()=='flat': cosmo = cosmology.FlatLambdaCDM(h0*100, Om)
+            else: cosmo = cosmology.LambdaCDM(h0*100, Om, Ode)
+        else:
+            cosmo = cosmology.FlatLambdaCDM(h0*100, Om)
+            print(f'Flat-LambdaCDM is assumed as {param.DE.name} is unknown.')
+        self.cosmo = cosmo 
+        return cosmo 
+        

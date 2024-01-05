@@ -44,16 +44,19 @@ def code_par():
 
 def cosmo_par():
     par = {
-        "Om": 0.315,
-        "Ob": 0.049,
+        "use_astropy": True,       # Use astropy as cosmological parameter
+
+        "Om"    : 0.315,
+        "Ob"    : 0.049,
         "Ogamma": 5.4e-5,
-        #"w" : -1.0,
+        "Ode"   : None,  # Flat universe is assumed if None or 'flat'.
         "s8": 0.83,
         "As": None, #2.089e-9,
         "h0": 0.673,
         "ns": 0.963,
         "YHe": 0.2425,
         "mnu": 0.06,
+
         "tau_reio": 0.052,
         "Tcmb": 2.72,
         "rhoc": 2.775e11, #critical density at z=0 [[h^2 Msun/Mpc^3] 
