@@ -306,7 +306,7 @@ class astropy_cosmo:
             w  = param.DE.w
             if Ode.lower()=='flat': cosmo = cosmology.FlatwCDM(h0*100, Om, w0=w)
             else: cosmo = cosmology.wCDM(h0*100, Om, Ode, w0=w)
-        elif param.DE.name.lower()=='cpl':
+        elif param.DE.name.lower() in ['cpl','w0wa']:
             w0 = param.DE.w0
             wa = param.DE.wa
             if Ode.lower()=='flat': cosmo = cosmology.Flatw0waCDM(h0*100, Om, w0=w0, wa=wa)
