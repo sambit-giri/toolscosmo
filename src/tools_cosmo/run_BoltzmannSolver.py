@@ -249,21 +249,21 @@ def run_bacco(param, **info):
             'ns'            :  param.cosmo.ns,
             'hubble'        :  param.cosmo.h0,
             'neutrino_mass' :  0.0,
-            'w0'            : -1.0,
-            'wa'            :  0.0,
+            # 'w0'            : -1.0,
+            # 'wa'            :  0.0,
             'expfactor'     :  1
         }
     if param.cosmo.As is not None:
         param_bacco['A_s'] = param.cosmo.As 
     else:
-        param_bacco['sigma8_cold:'] = param.cosmo.s8 
+        param_bacco['sigma8_cold'] = param.cosmo.s8 
     
     if param.DE.name.lower() in ['lcdm']:
         param_bacco['w0'] = -1.0
         param_bacco['wa'] = 0.0
     elif param.DE.name.lower() in ['cpl', 'w0wa']:
-        param_bacco['w0'] = param.cosmo.w0 
-        param_bacco['wa'] = param.cosmo.wa 
+        param_bacco['w0'] = param.DE.w0 
+        param_bacco['wa'] = param.DE.wa 
     else:
         print(f'{param.DE.name} is an unknown dark energy model.')
     
