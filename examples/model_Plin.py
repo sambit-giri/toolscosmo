@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import tools_cosmo
 import scipy
+from scipy.interpolate import splrep,splev
 import pickle, os
 from copy import deepcopy
 
@@ -47,12 +48,19 @@ axs[0].loglog(par3.cosmo.plin['k'], par3.cosmo.plin['P'], lw=3.0, ls='-.', c='C2
                     label=f'{par3.file.ps}')
 axs[0].loglog(par4.cosmo.plin['k'], par4.cosmo.plin['P'], lw=3.0, ls=':', c='C3',
                     label=f'{par4.file.ps}')
-axs[0].axis([1e-3,1e1,1,8e4])
+axs[0].axis([1e-3,51,1e-2,8e4])
+f_pk = lambda k,pa: 10**splev(np.log10(k),splrep(np.log10(pa.cosmo.plin['k']), np.log10(pa.cosmo.plin['P'])))
+axs[1].semilogx(par1.cosmo.plin['k'], par1.cosmo.plin['P']/f_pk(par1.cosmo.plin['k'],par2), lw=4.0, ls='-', c='C0',
+                    label=f'{par1.file.ps}')
+axs[1].semilogx(par2.cosmo.plin['k'], par2.cosmo.plin['P']/f_pk(par2.cosmo.plin['k'],par2), lw=4.0, ls='--', c='C1',
+                    label=f'{par2.file.ps}')
+axs[1].semilogx(par3.cosmo.plin['k'], par3.cosmo.plin['P']/f_pk(par3.cosmo.plin['k'],par2), lw=3.0, ls='-.', c='C2',
+                    label=f'{par3.file.ps}')
+axs[1].semilogx(par4.cosmo.plin['k'], par4.cosmo.plin['P']/f_pk(par4.cosmo.plin['k'],par2), lw=3.0, ls=':', c='C3',
+                    label=f'{par4.file.ps}')
+axs[1].axis([1e-3,51,0.5,1.5])
 axs[0].legend()
 axs[0].set_xlabel('k ($h$/Mpc)', fontsize=16)
 axs[0].set_ylabel('P(k)', fontsize=16)
 plt.tight_layout()
 plt.show()
-
-
-
