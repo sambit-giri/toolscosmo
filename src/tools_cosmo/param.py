@@ -144,16 +144,16 @@ def xray_par():
 def reio_par():
     par = {
         "N_ph": 2665.0,          # Nb of photons (1509.07868 assumes: Nion/Nal~0.275, see text below Eq15)
-        "f0_esc": 0.15,           #photon escape fraction f_esc = f0_esc * (M/Mp)^pl_esc
+        "f0_esc": 0.15,          # photon escape fraction f_esc = f0_esc * (M/Mp)^pl_esc
         "Mp_esc": 1e10,
-        "pl_esc": 0.0,           #pl_esc = 0.5 is reasonable (Park+18)
+        "pl_esc": 0.0,           # pl_esc = 0.5 is reasonable (Park+18)
         }
     return Bunch(par)
 
 def lf_par():
     par = {
-        "Muv_min": -25.0,                # min redshift
-        "Muv_max": -8.0,               # max redshift (not tested below 40)
+        "Muv_min": -25.0,            # min redshift
+        "Muv_max": -8.0,             # max redshift (not tested below 40)
         "NMuv": 30,                  # Nb of redshift bins
         "sig_M": 0.2,
         "eps_sys": 1,  
@@ -177,7 +177,7 @@ def lf_par():
 
 def io_files():
     par = {
-        "ps" : 'CDM_Planck15_pk.dat',
+        "ps" : 'CDM_Planck15_pk.dat', # Plin. Option: file, CLASS, CAMB, BACCO.
         "varfct": 'var.dat',
         "tau": 'tabulated_tau.npz',
         }

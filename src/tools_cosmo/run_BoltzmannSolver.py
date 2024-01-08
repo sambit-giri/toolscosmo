@@ -1,6 +1,7 @@
 import numpy as np 
 from scipy.interpolate import splrep,splev
 from time import time 
+import warnings
 
 # Third-party libraries
 # import pyhmcode as hmcode
@@ -10,22 +11,27 @@ import camb
 camb.set_feedback_level(0)
 
 def run_camb(param, **info):
+    tstart = time()
+    if param.code.verbose: print('Using CAMB to estimate linear power spectrum.')
+
     # Cosmological parameters
     h  = param.cosmo.h0
     omc = param.cosmo.Om - param.cosmo.Ob
     omb = param.cosmo.Ob 
     omk = 0.0 #param.cosmo.Ok # Assuming flat cosmology
     mnu = param.cosmo.mnu
-    w0 = param.DE.w0 
-    wa = param.DE.wa 
     ns = param.cosmo.ns 
     As = param.cosmo.As 
+    if As is None and param.cosmo.s8:
+        print(f'Provide As as normalisation with sigma8 not implemented.')
+        return None
 
     # Redshifts
-    zmin = param.code.zmin
-    zmax = param.code.zmax
-    nz = param.code.Nz 
-    zs = np.linspace(zmin, zmax, nz)
+    # zmin = param.code.zmin
+    # zmax = param.code.zmax
+    # nz = param.code.Nz 
+    # zs = np.linspace(zmin, zmax, nz)
+    zs = info.get('z', [0.0])
 
     # Wavenumbers [h/Mpc]
     k_max = param.code.kmax
@@ -47,16 +53,33 @@ def run_camb(param, **info):
                 num_massive_neutrinos=1,
                 mnu=mnu,
                 )
-    p.set_dark_energy(w=w0, wa=wa)
+    if param.DE.name.lower() in ['lcdm']:
+        pass
+    elif param.DE.name.lower() in ['cpl', 'w0wa']:
+        w0 = param.DE.w0 
+        wa = param.DE.wa 
+        p.set_dark_energy(w=w0, wa=wa)
+    else:
+        print(f'{param.DE.name} is an unknown dark energy model.')
     p.set_initial_power(camb.InitialPowerLaw(As=As, ns=ns))
     p.set_matter_power(redshifts=zs, kmax=k_max, nonlinear=True)
 
     # Compute CAMB results
+    p.NonLinear = camb.model.NonLinear_none
     r = camb.get_results(p)
+    k_h, z, pk_h = r.get_matter_power_spectrum(
+            minkh=param.code.kmin, 
+            maxkh=param.code.kmax, 
+            npoints=200, #npoints,
+            var1=7,
+            var2=7,
+        )
     # ks, zs, Pk_lin = r.get_linear_matter_power_spectrum(nonlinear=False)
     # Pk_nl_CAMB_interpolator = r.get_matter_power_interpolator()
     # Pk_nl = Pk_nl_CAMB_interpolator.P(zs, ks, grid=True)
-    return r
+    if param.code.verbose: print('CAMB runtime: {:.2f} s'.format(time()-tstart))
+    out = {'k': k_h.squeeze(), 'P': pk_h.squeeze(), 'results': r}
+    return out
 
 class ClassModule:
     '''
@@ -132,7 +155,7 @@ def run_class(param, **info):
     cosmo = {
             'omega_cdm': (param.cosmo.Om-param.cosmo.Ob)*param.cosmo.h0**2, 
             'omega_b': param.cosmo.Ob*param.cosmo.h0**2, 
-            'h': param.cosmo.h0, 
+            'h'  : param.cosmo.h0, 
             'n_s': param.cosmo.ns, 
             'tau_reio': param.cosmo.tau_reio,
             'YHe': param.cosmo.YHe,
@@ -205,3 +228,50 @@ def _class_run(k: float, omega_cdm: float, z: float = 4.66, z0: float = 0.0) -> 
     class_module.empty()
 
     return ratio
+
+def run_bacco(param, **info):
+    try:
+        import baccoemu
+        warnings.filterwarnings("ignore")
+    except:
+        print('To use this function, install baccoemu that can be found at:')
+        print('https://baccoemu.readthedocs.io/')
+        return None 
+    
+    tstart = time()
+    if param.code.verbose: print('Using BACCO emulator to estimate linear power spectrum.')
+    
+    param_bacco = {
+            #'omega_cold'    :  0.315,
+            #'sigma8_cold'   :  0.83, # if A_s is not specified
+            'omega_matter'   : param.cosmo.Om,
+            'omega_baryon'  :  param.cosmo.Ob,
+            'ns'            :  param.cosmo.ns,
+            'hubble'        :  param.cosmo.h0,
+            'neutrino_mass' :  0.0,
+            'w0'            : -1.0,
+            'wa'            :  0.0,
+            'expfactor'     :  1
+        }
+    if param.cosmo.As is not None:
+        param_bacco['A_s'] = param.cosmo.As 
+    else:
+        param_bacco['sigma8_cold:'] = param.cosmo.s8 
+    
+    if param.DE.name.lower() in ['lcdm']:
+        param_bacco['w0'] = -1.0
+        param_bacco['wa'] = 0.0
+    elif param.DE.name.lower() in ['cpl', 'w0wa']:
+        param_bacco['w0'] = param.cosmo.w0 
+        param_bacco['wa'] = param.cosmo.wa 
+    else:
+        print(f'{param.DE.name} is an unknown dark energy model.')
+    
+    emulator = baccoemu.Matter_powerspectrum(verbose=False)
+    kmin = param.code.kmin if param.code.kmin>0.0001 else 0.0001
+    kmax = param.code.kmax if param.code.kmax<50 else 50.0 
+    k_i = np.logspace(np.log10(kmin), np.log10(kmax), num=100)
+    k_h, pk_lin_total = emulator.get_linear_pk(k=k_i, cold=False, **param_bacco)
+
+    if param.code.verbose: print('BACCO emulator runtime: {:.2f} s'.format(time()-tstart))
+    return {'k': k_h, 'P': pk_lin_total}

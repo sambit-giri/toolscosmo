@@ -169,11 +169,15 @@ def calc_Plin(param, **info):
     # print(param.file.ps)
     if param.file.ps.lower()=='camb':
         r = run_camb(param)
+        PS = {'k': r['k'], 'P': r['P']}
     elif param.file.ps.lower()=='class':
         class_ = run_class(param, **info)
         PS = {'k': class_.k, 'P': class_.pk_lin}
+    elif param.file.ps.lower() in ['bacco', 'baccoemu']:
+        PS = run_bacco(param, **info)
     else:
-        print('Either choose between CAMB or CLASS Boltmann Solvers or provide a file containing the linear power spectrum.')
+        print('Provide linear power spectrum via param.file.ps')
+        print('Option: file, CLASS, CAMB, BACCO')
         PS = None 
     return PS 
 
