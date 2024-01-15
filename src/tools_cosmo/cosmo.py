@@ -87,7 +87,9 @@ def hubble(z,param):
 
 def growth_factor(z, param):
     """
-    Growth factor from Longair textbook (Eq. 11.56)
+    Growth factor from Longair textbook (Eq. 11.56).
+    Also see arXiv:astro-ph/0006089
+
     z: array of redshifts from zmin to zmax
     """
     Om = param.cosmo.Om

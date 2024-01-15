@@ -77,7 +77,9 @@ def run_camb(param, **info):
     # ks, zs, Pk_lin = r.get_linear_matter_power_spectrum(nonlinear=False)
     # Pk_nl_CAMB_interpolator = r.get_matter_power_interpolator()
     # Pk_nl = Pk_nl_CAMB_interpolator.P(zs, ks, grid=True)
-    if param.code.verbose: print('CAMB runtime: {:.2f} s'.format(time()-tstart))
+    if param.code.verbose: 
+        print(f'sigma_8={r.get_sigma8_0():.3f}')
+        print('CAMB runtime: {:.2f} s'.format(time()-tstart))
     out = {'k': k_h.squeeze(), 'P': pk_h.squeeze(), 'results': r}
     return out
 
