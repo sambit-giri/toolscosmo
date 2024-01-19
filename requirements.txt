@@ -5,5 +5,5 @@ astropy
 pytest
 scikit-learn
 
-baccoemu
+git+https://github.com/sambit-giri/tools_cosmo.git
 camb
