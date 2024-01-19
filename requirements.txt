@@ -5,5 +5,5 @@ astropy
 pytest
 scikit-learn
 
-git+https://bitbucket.org/rangulo/baccoemu.git
+baccoemu
 camb
