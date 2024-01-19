@@ -15,8 +15,9 @@ setup(name='tools_cosmo',
       packages=find_packages("src"),
       package_dir={"": "src"},
       package_data={'tools_cosmo': ['input_data/*']},
-      install_requires=['numpy', 'scipy', 'matplotlib',
-                        'pytest'],
+      install_requires=['numpy', 'scipy', 'matplotlib', 'pytest', 'astropy' 
+                        'baccoemu', 'camb'
+                        ],
       include_package_data=True,
       long_description=open('README.md').read(),
       long_description_content_type='text/markdown',
