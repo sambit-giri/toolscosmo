@@ -59,6 +59,7 @@ def run_camb(param, **info):
         w0 = param.DE.w0 
         wa = param.DE.wa 
         p.set_dark_energy(w=w0, wa=wa)
+        if param.code.verbose: print(f'{param.DE.name}: w0,wa={w0},{wa}')
     else:
         print(f'{param.DE.name} is an unknown dark energy model.')
     p.set_initial_power(camb.InitialPowerLaw(As=As, ns=ns))

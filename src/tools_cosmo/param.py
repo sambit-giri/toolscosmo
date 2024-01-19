@@ -177,7 +177,7 @@ def lf_par():
 
 def io_files():
     par = {
-        "ps" : 'CDM_Planck15_pk.dat', # Plin. Option: file, CLASS, CAMB, BACCO.
+        "ps" : 'CAMB', # Plin. Option: file, CLASS, CAMB, BACCO, 'CDM_Planck15_pk.dat'.
         "varfct": 'var.dat',
         "tau": 'tabulated_tau.npz',
         }
