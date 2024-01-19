@@ -23,7 +23,7 @@ setup(
         'pytest',
         'astropy',
         'scikit-learn',
-        'git+https://bitbucket.org/rangulo/baccoemu.git',
+        'baccoemu',
         'camb'
     ],
     include_package_data=True,
