@@ -3,6 +3,7 @@ scipy
 matplotlib
 astropy
 pytest
+scikit-learn
 
 baccoemu
 camb
