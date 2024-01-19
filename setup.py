@@ -23,7 +23,7 @@ setup(
         'pytest',
         'astropy',
         'scikit-learn',
-        'git+https://github.com/sambit-giri/tools_cosmo.git',
+        'git+https://bitbucket.org/rangulo/baccoemu.git',
         'camb'
     ],
     include_package_data=True,
