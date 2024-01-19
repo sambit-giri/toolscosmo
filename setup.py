@@ -16,7 +16,7 @@ setup(name='tools_cosmo',
       package_dir={"": "src"},
       package_data={'tools_cosmo': ['input_data/*']},
       install_requires=['numpy', 'scipy', 'matplotlib', 'pytest', 
-                        'astropy', 'scikit-learn', 
+                        'astropy', #'scikit-learn', 
                         'baccoemu', 'camb'
                         ],
       include_package_data=True,
