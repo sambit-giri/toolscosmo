@@ -44,7 +44,7 @@ def code_par():
 
 def cosmo_par():
     par = {
-        "use_astropy": True,       # Use astropy as cosmological parameter
+        "solver": 'astropy',       # solver/package for cosmological parameter. Options: 'astropy', 'camb', 'tools_cosmo'.
 
         "Om"    : 0.315,
         "Ob"    : 0.049,

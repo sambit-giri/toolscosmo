@@ -11,6 +11,25 @@ from astropy import cosmology, units
 from .constants import rhoc0,c
 from .run_BoltzmannSolver import *
 
+def prepare_cosmo_solver(param):
+    print('Preparing cosmological solvers...')
+    if param.cosmo.solver.lower()=='astropy':
+        solver_estimator = astropy_cosmo(param).cosmo
+    elif param.cosmo.solver.lower()=='camb':
+        cosmo_camb = run_camb(param)
+        solver_estimator = cosmo_camb['results']
+        if param.file.ps.lower()=='camb':
+            PS = {'k': cosmo_camb['k'], 'P': cosmo_camb['P']}
+            param.file.ps = PS
+        else:
+            print('CAMB is used for cosmological calculations.')
+            print(f'Using CAMB instead of {param.file.ps} for modelling linear power spectrum will avoid running another Boltzmann solver.')
+    else: 
+        solver_estimator = None 
+    param.cosmo.solver_estimator = solver_estimator
+    print('...done')
+    return param
+
 def rhoc_of_z(z,param):
     """
     Redshift dependence of critical density
@@ -21,40 +40,52 @@ def rhoc_of_z(z,param):
     return rhoc0*(Om*(1.0+z)**3.0 + Ol)/(1.0+z)**3.0
 
 def ez_grownu(z, om, omega_rad, omega_nu, oe):
-        # om, omega_nu, oe, h0 = theta
-        #omega_rad = 2.469e-5 * (H0/100.)**-2. * (1+0.2271*3.04)
-        rad_term = omega_rad * (1+z)**4.
-        ods = 1 - om - omega_rad
-        a = 1./(1+z)
-        aval = (1-oe)*(ods - 2*omega_nu)
-        cval = oe*(ods - 1)
-        bval = 2*omega_nu*(1 - oe)
-        nume = -bval + np.sqrt(bval**2. - 4.*aval*cval)
-        denom = 2.*aval
-        a_trans = pow(nume/denom, 2./3)
-        mat_term = om*(1+z)**3.
-        # print(omega_nu,oe,a)
-        if a > a_trans:
-            ttop = ods*a**3. + 2*omega_nu*(pow(a, 3./2) - a**3.)
-            tbot = 1 - ods *(1 - a**3) + 2 * omega_nu * (pow(a, 3./2) - a**3)
-            ods_a = ttop/tbot
-        elif a <=a_trans:
-            ods_a = oe
-        ezsq = (mat_term + rad_term)/(1-ods_a)
-        return np.sqrt(ezsq) #1./np.sqrt(ezsq)
+    # om, omega_nu, oe, h0 = theta
+    #omega_rad = 2.469e-5 * (H0/100.)**-2. * (1+0.2271*3.04)
+    rad_term = omega_rad * (1+z)**4.
+    ods = 1 - om - omega_rad
+    a = 1./(1+z)
+    aval = (1-oe)*(ods - 2*omega_nu)
+    cval = oe*(ods - 1)
+    bval = 2*omega_nu*(1 - oe)
+    nume = -bval + np.sqrt(bval**2. - 4.*aval*cval)
+    denom = 2.*aval
+    a_trans = pow(nume/denom, 2./3)
+    mat_term = om*(1+z)**3.
+    # print(omega_nu,oe,a)
+    if a > a_trans:
+        ttop = ods*a**3. + 2*omega_nu*(pow(a, 3./2) - a**3.)
+        tbot = 1 - ods *(1 - a**3) + 2 * omega_nu * (pow(a, 3./2) - a**3)
+        ods_a = ttop/tbot
+    elif a <=a_trans:
+        ods_a = oe
+    ezsq = (mat_term + rad_term)/(1-ods_a)
+    return np.sqrt(ezsq) #1./np.sqrt(ezsq)
 
 def Ez_growing_nu(z, Om0=0.315, Ok0=0.0, Or0=5.4e-5, Onu0=0.01, Oe0=0.01):
-     return np.vectorize(ez_grownu)(z, Om0, Or0, Onu0, Oe0)
+    return np.vectorize(ez_grownu)(z, Om0, Or0, Onu0, Oe0)
 
 def Ez_model(param):
     """
     Normalised Hubble parameter.
     Exotic dark energy models can be defined here.
     """
-    if param.cosmo.use_astropy:
-        cosmo = astropy_cosmo(param).cosmo
+    try: 
+        cosmo = param.cosmo.solver_estimator
+    except:
+        param = prepare_cosmo_solver(param)
+        cosmo = param.cosmo.solver_estimator
+
+    if param.cosmo.solver.lower()=='astropy':
         Ez = lambda z: cosmo.efunc(z)
         return Ez
+    elif param.cosmo.solver.lower()=='camb':
+        Ez = lambda z: cosmo.hubble_parameter(z)/cosmo.hubble_parameter(0)
+    elif param.cosmo.solver.lower()=='tools_cosmo':
+        pass
+    else:
+        print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
+
     Om = param.cosmo.Om
     Ogamma = param.cosmo.Ogamma
     Ol = 1.0-Om-Ogamma # Flat universe assumption
@@ -77,9 +108,21 @@ def hubble(z,param):
     """
     Hubble parameter
     """
-    if param.cosmo.use_astropy:
-        cosmo = astropy_cosmo(param).cosmo
+    try: 
+        cosmo = param.cosmo.solver_estimator
+    except:
+        param = prepare_cosmo_solver(param)
+        cosmo = param.cosmo.solver_estimator
+
+    if param.cosmo.solver.lower()=='astropy':
         return cosmo.H(z).value
+    elif param.cosmo.solver.lower()=='camb':
+        return cosmo.hubble_parameter(z)
+    elif param.cosmo.solver.lower()=='tools_cosmo':
+        pass
+    else:
+        print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
+
     H0 = 100.0*param.cosmo.h0
     Ez = Ez_model(param)
     return H0 * Ez(z)
@@ -105,9 +148,21 @@ def comoving_distance(z,param):
     """
     Comoving distance between z=0 and z.
     """
-    if param.cosmo.use_astropy:
-        cosmo = astropy_cosmo(param).cosmo
+    try: 
+        cosmo = param.cosmo.solver_estimator
+    except:
+        param = prepare_cosmo_solver(param)
+        cosmo = param.cosmo.solver_estimator
+
+    if param.cosmo.solver.lower()=='astropy':
+        # cosmo = astropy_cosmo(param).cosmo
         return cosmo.comoving_distance(z).to('Mpc').value 
+    elif param.cosmo.solver.lower()=='camb':
+        return cosmo.comoving_radial_distance(z)
+    elif param.cosmo.solver.lower()=='tools_cosmo':
+        pass
+    else:
+        print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
     
     if isinstance(z,list): z = np.array(z)
     # dcom = cumtrapz(c/hubble(z,param),z,initial=0)  # [Mpc]
@@ -120,9 +175,21 @@ def luminosity_distance(z,param):
     """
     Luminosity distance between z=0 and z.
     """
-    if param.cosmo.use_astropy:
-        cosmo = astropy_cosmo(param).cosmo
+    try: 
+        cosmo = param.cosmo.solver_estimator
+    except:
+        param = prepare_cosmo_solver(param)
+        cosmo = param.cosmo.solver_estimator
+
+    if param.cosmo.solver.lower()=='astropy':
+        # cosmo = astropy_cosmo(param).cosmo
         return cosmo.luminosity_distance(z).to('Mpc').value 
+    elif param.cosmo.solver.lower()=='camb':
+        return cosmo.luminosity_distance(z)
+    elif param.cosmo.solver.lower()=='tools_cosmo':
+        pass
+    else:
+        print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
 
     if isinstance(z,list): z = np.array(z)
     return comoving_distance(z,param)*(1+z)         # [Mpc]
@@ -131,10 +198,22 @@ def distance_modulus(z,param):
     """
     Distance modulus between z=0 and z.
     """
-    if param.cosmo.use_astropy:
-        cosmo = astropy_cosmo(param).cosmo
+    try: 
+        cosmo = param.cosmo.solver_estimator
+    except:
+        param = prepare_cosmo_solver(param)
+        cosmo = param.cosmo.solver_estimator
+
+    if param.cosmo.solver.lower()=='astropy':
+        # cosmo = astropy_cosmo(param).cosmo
         return cosmo.distmod(z).to('mag').value 
-    
+    elif param.cosmo.solver.lower()=='camb':
+        return 5*np.log10(cosmo.luminosity_distance(z))+25
+    elif param.cosmo.solver.lower()=='tools_cosmo':
+        pass
+    else:
+        print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
+
     if isinstance(z,list): z = np.array(z)
     return 5*np.log10(luminosity_distance(z,param))+25
 
@@ -315,6 +394,7 @@ class astropy_cosmo:
         elif param.DE.name.lower() in ['cpl','w0wa']:
             w0 = param.DE.w0
             wa = param.DE.wa
+            # print(w0, wa)
             if Ode.lower()=='flat': cosmo = cosmology.Flatw0waCDM(h0*100, Om, w0=w0, wa=wa)
             else: cosmo = cosmology.w0waCDM(h0*100, Om, Ode, w0=w0, wa=wa)
         elif param.DE.name.lower()=='growing_neutrino_mass':

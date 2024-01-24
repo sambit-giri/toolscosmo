@@ -58,6 +58,8 @@ def run_camb(param, **info):
     elif param.DE.name.lower() in ['cpl', 'w0wa']:
         w0 = param.DE.w0 
         wa = param.DE.wa 
+        if (w0 < -1 - 1e-6 or 1 + w0 + wa < - 1e-6):
+            wa = 0.0
         p.set_dark_energy(w=w0, wa=wa)
         if param.code.verbose: print(f'{param.DE.name}: w0,wa={w0},{wa}')
     else:
