@@ -86,6 +86,15 @@ def de_par(name):
             "Onu" : 0.0,
             "Oede": 0.0,
             }
+    elif name.lower()=='ultra_light_axion':
+        par = {
+            "name"   : name,
+            "n"      : 3,    # Axion field dilutes faster than radiation.
+            "w_n"    : None, # (n-1)/(n+1)
+            "fde_zc" : 0.07, 
+            "zc"     : 10**3,
+            "theta_i": 3.14-0.1,
+            }
     else:
         print('{} is unknown DE model'.format(name))
     return Bunch(par) 

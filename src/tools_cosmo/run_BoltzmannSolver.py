@@ -62,8 +62,18 @@ def run_camb(param, **info):
             wa = 0.0
         p.set_dark_energy(w=w0, wa=wa)
         if param.code.verbose: print(f'{param.DE.name}: w0,wa={w0},{wa}')
+    elif param.DE.name.lower() in ['axioneffectivefluid', 'axion_effective_fluid', 'ula', 'ultralightaxion', 'ultra_light_axion']:
+        n   = param.DE.n
+        w_n = (n-1)/(n+1) if param.DE.w_n is None else param.DE.w_n
+        fde_zc = param.DE.fde_zc
+        zc = param.DE.zc 
+        theta_i = param.DE.theta_i
+        p.DarkEnergy =  camb.dark_energy.AxionEffectiveFluid(w_n=w_n, 
+                                                             fde_zc=fde_zc,
+                                                             zc=zc,
+                                                             theta_i=theta_i,)
     else:
-        print(f'{param.DE.name} is an unknown dark energy model.')
+        print(f'{param.DE.name} is an unknown dark energy model for CAMB.')
     p.set_initial_power(camb.InitialPowerLaw(As=As, ns=ns))
     p.set_matter_power(redshifts=zs, kmax=k_max, nonlinear=True)
 
@@ -146,9 +156,9 @@ class ClassModule:
             self.full_Pk = np.vstack((self.full_Pk,self.pk_lin))
 
         # empty Class module - unnecessarily accumulates memory
-        class_module.struct_cleanup()
-        class_module.empty()
-        # self.class_module = class_module
+        # class_module.struct_cleanup()
+        # class_module.empty()
+        self.class_module = class_module
         if self.verbose: print('CLASS runtime: {:.2f} s'.format(time()-tstart))
 
         if self.save_data:
@@ -177,62 +187,71 @@ def run_class(param, **info):
                         'output': 'mPk', 
                         'k_per_decade_for_pk': info.get('k_per_decade_for_pk', 10)
                         }
+    if param.DE.name.lower() in ['cpl', 'w0wa']:
+        w0, wa = param.DE.w0 , param.DE.wa
+        if param.code.verbose: print(f'{param.DE.name}: w0,wa={w0},{wa}')
+        inputs_class['fluid_equation_of_state'] = 'CLP'
+        inputs_class['w0_fld'] = w0 
+        inputs_class['wa_fld'] = wa
+        inputs_class['cs2_fld'] = 1
+        inputs_class['Omega_Lambda'] = 0.0
+
     k = 10**np.linspace(np.log10(param.code.kmin),np.log10(param.code.kmax),param.code.Nk)
     class_ = ClassModule(cosmo, k=k, inputs_class=inputs_class, verbose=param.code.verbose)
     class_.compute_Plin()
     return class_
 
-def _class_run(k: float, omega_cdm: float, z: float = 4.66, z0: float = 0.0) -> float:
-    '''
-    Function the factor 1 + q(k,z).
+# def _class_run(k: float, omega_cdm: float, z: float = 4.66, z0: float = 0.0) -> float:
+#     '''
+#     Function the factor 1 + q(k,z).
 
-    Inputs
-    ------
-    k (float) - the wavenumber
+#     Inputs
+#     ------
+#     k (float) - the wavenumber
 
-    omega_cdm (float) - cold dark matter component, this is, omega_cdm h^2
+#     omega_cdm (float) - cold dark matter component, this is, omega_cdm h^2
 
-    z (float) - the redshift at which the power spectrum is calculated (default : 4.66)
+#     z (float) - the redshift at which the power spectrum is calculated (default : 4.66)
 
-    z0 (float) - the reference redshift (default: 0.0)
+#     z0 (float) - the reference redshift (default: 0.0)
 
-    Returns
-    -------
-    ratio (float) - the factor 1 + q(k,z)
-    '''
+#     Returns
+#     -------
+#     ratio (float) - the factor 1 + q(k,z)
+#     '''
 
-    cosmo = {'omega_cdm': omega_cdm, 'omega_b': par[1], 'ln10^{10}A_s': par[2], 'n_s': par[3], 'h': par[4]}
+#     cosmo = {'omega_cdm': omega_cdm, 'omega_b': par[1], 'ln10^{10}A_s': par[2], 'n_s': par[3], 'h': par[4]}
 
-    # instantiate Class
-    class_module = Class()
+#     # instantiate Class
+#     class_module = Class()
 
-    # set cosmology
-    class_module.set(cosmo)
+#     # set cosmology
+#     class_module.set(cosmo)
 
-    # set basic configurations for Class
-    class_module.set(inputs_class)
+#     # set basic configurations for Class
+#     class_module.set(inputs_class)
 
-    # compute the important quantities
-    class_module.compute()
+#     # compute the important quantities
+#     class_module.compute()
 
-    # k is in Mpc^-1
-    # calculate the non-linear matter power spectrum
-    pk_non = class_module.pk(k * par[4], z)
+#     # k is in Mpc^-1
+#     # calculate the non-linear matter power spectrum
+#     pk_non = class_module.pk(k * par[4], z)
     
-    # calculate the linear matter power spectrum
-    pk_lin = class_module.pk_lin(k * par[4], z0)
+#     # calculate the linear matter power spectrum
+#     pk_lin = class_module.pk_lin(k * par[4], z0)
 
-    # get the factor A
-    a_fact = class_module.scale_independent_growth_factor(z)**2
+#     # get the factor A
+#     a_fact = class_module.scale_independent_growth_factor(z)**2
 
-    # calculate ratio
-    ratio = pk_non / (a_fact * pk_lin)
+#     # calculate ratio
+#     ratio = pk_non / (a_fact * pk_lin)
 
-    # empty Class module - unnecessarily accumulates memory
-    class_module.struct_cleanup()
-    class_module.empty()
+#     # empty Class module - unnecessarily accumulates memory
+#     class_module.struct_cleanup()
+#     class_module.empty()
 
-    return ratio
+#     return ratio
 
 def run_bacco(param, **info):
     try:

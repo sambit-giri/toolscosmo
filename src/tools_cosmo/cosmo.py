@@ -12,9 +12,10 @@ from .constants import rhoc0,c
 from .run_BoltzmannSolver import *
 
 def prepare_cosmo_solver(param):
-    print('Preparing cosmological solvers...')
+    if param.code.verbose: print('Preparing cosmological solvers...')
     if param.cosmo.solver.lower()=='astropy':
         solver_estimator = astropy_cosmo(param).cosmo
+        if param.code.verbose: print('astropy will be used.')
     elif param.cosmo.solver.lower()=='camb':
         cosmo_camb = run_camb(param)
         solver_estimator = cosmo_camb['results']
@@ -24,10 +25,21 @@ def prepare_cosmo_solver(param):
         else:
             print('CAMB is used for cosmological calculations.')
             print(f'Using CAMB instead of {param.file.ps} for modelling linear power spectrum will avoid running another Boltzmann solver.')
+        if param.code.verbose: print('CAMB will be used.')
+    elif param.cosmo.solver.lower()=='class':
+        cosmo_class = run_class(param)
+        solver_estimator = cosmo_class.class_module
+        if param.file.ps.lower()=='class':
+            PS = {'k': cosmo_class.k, 'P': cosmo_class.pk_lin}
+            param.file.ps = PS
+        else:
+            print('CLASS is used for cosmological calculations.')
+            print(f'Using CLASS instead of {param.file.ps} for modelling linear power spectrum will avoid running another Boltzmann solver.')
+        if param.code.verbose: print('CLASS will be used.')
     else: 
         solver_estimator = None 
     param.cosmo.solver_estimator = solver_estimator
-    print('...done')
+    if param.code.verbose: print('...done')
     return param
 
 def rhoc_of_z(z,param):
@@ -81,6 +93,8 @@ def Ez_model(param):
         return Ez
     elif param.cosmo.solver.lower()=='camb':
         Ez = lambda z: cosmo.hubble_parameter(z)/cosmo.hubble_parameter(0)
+    elif param.cosmo.solver.lower()=='class':
+        Ez = np.vectorize(lambda z: cosmo.Hubble(z)/cosmo.Hubble(0))
     elif param.cosmo.solver.lower()=='tools_cosmo':
         pass
     else:
@@ -118,6 +132,8 @@ def hubble(z,param):
         return cosmo.H(z).value
     elif param.cosmo.solver.lower()=='camb':
         return cosmo.hubble_parameter(z)
+    elif param.cosmo.solver.lower()=='class':
+        return np.vectorize(lambda z0: cosmo.Hubble(z0)/cosmo.Hubble(0)*cosmo.h()*100)(z)
     elif param.cosmo.solver.lower()=='tools_cosmo':
         pass
     else:
@@ -159,6 +175,8 @@ def comoving_distance(z,param):
         return cosmo.comoving_distance(z).to('Mpc').value 
     elif param.cosmo.solver.lower()=='camb':
         return cosmo.comoving_radial_distance(z)
+    elif param.cosmo.solver.lower()=='class':
+        return np.vectorize(lambda z0: cosmo.comoving_distance(z0))(z)
     elif param.cosmo.solver.lower()=='tools_cosmo':
         pass
     else:
@@ -186,6 +204,8 @@ def luminosity_distance(z,param):
         return cosmo.luminosity_distance(z).to('Mpc').value 
     elif param.cosmo.solver.lower()=='camb':
         return cosmo.luminosity_distance(z)
+    elif param.cosmo.solver.lower()=='class':
+        return np.vectorize(lambda z0: cosmo.luminosity_distance(z0))(z)
     elif param.cosmo.solver.lower()=='tools_cosmo':
         pass
     else:
@@ -209,6 +229,9 @@ def distance_modulus(z,param):
         return cosmo.distmod(z).to('mag').value 
     elif param.cosmo.solver.lower()=='camb':
         return 5*np.log10(cosmo.luminosity_distance(z))+25
+    elif param.cosmo.solver.lower()=='class':
+        D_L = np.vectorize(lambda z0: cosmo.luminosity_distance(z0))(z)
+        return 5*np.log10(D_L)+25
     elif param.cosmo.solver.lower()=='tools_cosmo':
         pass
     else:

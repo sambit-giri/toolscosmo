@@ -43,8 +43,6 @@ def mass_accretion(GS,param):
 
     return M_accr, dMdt_accr
 
-
-
 def mass_accretion_EPS(GS,param):
     """
     Assuming EPS formula
