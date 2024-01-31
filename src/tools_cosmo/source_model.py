@@ -90,6 +90,8 @@ def fstar(zz,m,type_of_flux,param):
         fstar[i,np.where(fstar[i,:]>1)] = 1
 
         fstar[i,np.where(m<Mmin)] = 0
+    
+    # print(g1, g2, g3, g4, fstar.shape)
 
     return fstar
 

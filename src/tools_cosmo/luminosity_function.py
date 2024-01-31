@@ -10,7 +10,7 @@ from .cosmo import hubble, get_Plin
 from .constants import *
 
 def mass_fct(param, output={}):
-    zz, mm, var, dlnvardlnm, dndlnm, bias, fcoll_xray, dfcolldz_xray, sfrd_from_fcoll_xray = collapsed_fraction('xray',param)
+    zz, mm, var, dlnvardlnm, dndlnm, bias, fcoll_xray, dfcolldz_xray, sfrd_from_fcoll_xray = collapsed_fraction('lf',param)
     out = {
             'z': zz,
             'm': mm,   # h^-1 Msun
@@ -56,6 +56,7 @@ class UVLF:
         output.update(hmf)
         output.update(mass_accr(param,output=output))
         fstars = fstar(output['z'], output['m'], 'lf', param)
+        # fstars[fstars<1e-5] = 0
         output.update({'fstar': fstars})
         # idx_abv = np.argmin(np.abs(np.log10(M0[:,None]/M_accr[i,:])),axis=1)
 
@@ -69,10 +70,11 @@ class UVLF:
         # dMhdt_dot = param.MA.alpha_EXP * output['m'] * (output['z'][:,None]+1) * hubble(output['z'][:,None],param) * sec_per_yr / km_per_Mpc
         # print(dMhdt_dot.shape)
 
-        M_AB = M0 - 2.5*(np.log10(fstars) + np.log10(param.cosmo.Ob/param.cosmo.Om) 
-                + np.log10(dMhdt_dot) 
-                #+ np.log10(output['dMdt_accr']) 
-                - np.log10(kappa) - np.log10(param.cosmo.h0)
+        M_AB = M0 - 2.5*(np.log10(fstars) 
+                       + np.log10(param.cosmo.Ob/param.cosmo.Om) 
+                       + np.log10(dMhdt_dot) 
+                       #+ np.log10(output['dMdt_accr']) 
+                       - np.log10(kappa) - np.log10(param.cosmo.h0)
                 )
         output.update({'M_AB': M_AB})
         self.output = output
@@ -118,7 +120,7 @@ class UVLF:
         output['f_duty'] = f_duty
         dndlnm = output['dndlnm']*f_duty(output['m'])
         # print(output.keys())
-
+        
         Muv_edges = np.linspace(param.lf.Muv_min,param.lf.Muv_max,param.lf.NMuv+1)
         Muv_mean  = Muv_edges[1:]/2.+Muv_edges[:-1]/2.
         phi_uv = np.zeros((len(zz),len(Muv_mean)))
