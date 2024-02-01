@@ -151,13 +151,48 @@ def growth_factor(z, param):
 
     z: array of redshifts from zmin to zmax
     """
+    if param.DE.name.lower()=='lcdm':
+        Om = param.cosmo.Om
+        D0 = hubble(0,param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.01, 1, epsrel=5e-3, limit=100)[0]
+        Dz = []
+        for i in range(len(z)):
+            Dz += [hubble(z[i],param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.01, 1/(1+z[i]), epsrel=5e-3, limit=100)[0]]
+        Dz = np.array(Dz)
+        return Dz/D0
+    else:
+        return growth_factor_Linder2005(z, param)
+
+def w_DE(z, param):
+    if param.DE.name.lower()=='lcdm':
+        w = -1   
+    elif param.DE.name.lower()=='wcdm':
+        w = param.DE.w 
+    elif param.DE.name.lower()=='cpl':
+        w = param.DE.w0 + param.DE.wa*z/(1+z)
+    else:
+        print(f'Dark energy equation of state for {param.DE.name} is not implemented.')
+    return w 
+
+def growth_factor_Linder2005(z, param):
+    """
+    A fit for growth factor from Linder (2005, PhRvD, 72, 043529)
+    that should work for most DDE models.
+
+    z: array of redshifts from zmin to zmax
+    """
     Om = param.cosmo.Om
-    D0 = hubble(0,param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.01, 1, epsrel=5e-3, limit=100)[0]
-    Dz = []
+    H0 = hubble(0,param)
+    Ha = lambda a: hubble(1/a-1,param)
+    Oa = lambda a: Om*a**(-3)/(Ha(a)/H0)**2
+    wz = lambda z: w_DE(z, param)
+    w1 = wz(1)
+    gamma = 0.55+0.05*(1+w1) if w1>=-1 else 0.55+0.02*(1+w1)
+    D0 = np.exp(quad(lambda a: (Oa(a)**gamma-1)/a, 0.01, 1, epsrel=5e-3, limit=100)[0])
+    Dz = np.array([])
     for i in range(len(z)):
-        Dz += [hubble(z[i],param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.01, 1/(1+z[i]), epsrel=5e-3, limit=100)[0]]
-    Dz = np.array(Dz)
-    return Dz/D0
+        ln_Da = quad(lambda a: (Oa(a)**gamma-1)/a, 0.01, 1/(1+z[i]), epsrel=5e-3, limit=100)[0]
+        Dz = np.append(Dz,np.exp(ln_Da))
+    return Dz/D0/(1+z)
 
 
 def comoving_distance(z,param):
