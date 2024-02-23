@@ -189,6 +189,7 @@ def io_files():
         "ps" : 'CAMB', # Plin. Option: file, CLASS, CAMB, BACCO, 'CDM_Planck15_pk.dat'.
         "varfct": 'var.dat',
         "tau": 'tabulated_tau.npz',
+        "cmb": False,  # If True, the Boltzmann solver will provide Cls. 
         }
     return Bunch(par)
 

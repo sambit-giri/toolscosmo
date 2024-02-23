@@ -94,6 +94,10 @@ def run_camb(param, **info):
         print(f'sigma_8={r.get_sigma8_0():.3f}')
         print('CAMB runtime: {:.2f} s'.format(time()-tstart))
     out = {'k': k_h.squeeze(), 'P': pk_h.squeeze(), 'results': r}
+    ## get dictionary of CAMB power spectra
+    powers =r.get_cmb_power_spectra(p, CMB_unit='muK')
+    # for name in powers: print(name)
+    out['CMB_Cls'] = powers
     return out
 
 class ClassModule:
@@ -185,8 +189,10 @@ def run_class(param, **info):
                         'P_k_max_h/Mpc': param.code.kmax, 
                         'z_max_pk': param.code.zmax, 
                         'output': 'mPk', 
-                        'k_per_decade_for_pk': info.get('k_per_decade_for_pk', 10)
+                        #'k_per_decade_for_pk': info.get('k_per_decade_for_pk', 10),
+                        #'tol_perturbations_integration': info.get('tol_perturbations_integration', 1e-6),
                         }
+
     if param.DE.name.lower() in ['cpl', 'w0wa']:
         w0, wa = param.DE.w0 , param.DE.wa
         if param.code.verbose: print(f'{param.DE.name}: w0,wa={w0},{wa}')
@@ -195,6 +201,9 @@ def run_class(param, **info):
         inputs_class['wa_fld'] = wa
         inputs_class['cs2_fld'] = 1
         inputs_class['Omega_Lambda'] = 0.0
+
+    inputs_class.update(info)
+    # print(inputs_class.keys())
 
     k = 10**np.linspace(np.log10(param.code.kmin),np.log10(param.code.kmax),param.code.Nk)
     class_ = ClassModule(cosmo, k=k, inputs_class=inputs_class, verbose=param.code.verbose)
