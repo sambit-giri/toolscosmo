@@ -149,10 +149,13 @@ def growth_factor(z, param):
     z: array of redshifts from zmin to zmax
     """
     if param.code.Dz_solver.lower() in ['linder2005','linder(2005)','linder (2005)']:
+        # print('Linder (2005) fitting function')
         return growth_factor_Linder2005(z, param)
     elif param.code.Dz_solver.lower() in ['solveode','ode']:
+        # print('Solving the ODE')
         return growth_factor_solveODE(z, param)
     else:
+        # print('Hamilton (2000) fitting function')
         Om = param.cosmo.Om
         D0 = hubble(0,param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.01, 1, epsrel=5e-3, limit=100)[0]
         Dz = []

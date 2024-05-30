@@ -36,7 +36,7 @@ def fnu_cond(d,var,d0,var0):
     """
     ddelta = d-d0
     dvar     = var-var0
-    fcond = (1/2/pi)**0.5 * ddelta/dvar**1.5 * np.exp(-ddelta**2/dvar/2)
+    fcond = (1/2/np.pi)**0.5 * ddelta/dvar**1.5 * np.exp(-ddelta**2/dvar/2)
     return fcond
 
 
