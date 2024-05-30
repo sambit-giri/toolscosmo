@@ -39,6 +39,7 @@ def code_par():
         "MA": 'EPS',                # mass accretion model [EPS,EXP,AM]
         "sfrd_from_MA": True,       # True/False: calculate sfrd using mass accretion / time derivative of fcoll 
         "bias": 'ellipsoidal',      # [ellipsoidal/spherical/tinker/jing]
+        "Dz_solver": 'Hamilton2000',# Default: 'Hamilton2000', Options: 'solveODE','Hamilton2000','Linder2005'
         }
     return Bunch(par)
 
@@ -46,14 +47,15 @@ def cosmo_par():
     par = {
         "solver": 'astropy',       # solver/package for cosmological parameter. Options: 'astropy', 'camb', 'tools_cosmo'.
 
-        "Om"    : 0.315,
-        "Ob"    : 0.049,
-        "Ogamma": 5.4e-5,
-        "Ode"   : None,  # Flat universe is assumed if None or 'flat'.
-        "s8": 0.83,
-        "As": None, #2.089e-9,
-        "h0": 0.673,
-        "ns": 0.963,
+        "Om" : 0.315,
+        "Ob" : 0.049,
+        "Or" : 5.4e-5,
+        "Ok" : 0.0,
+        "Ode": None,  # Flat universe is assumed if None or 'flat'.
+        "s8" : 0.83,
+        "As" : None, #2.089e-9,
+        "h0" : 0.673,
+        "ns" : 0.963,
         "YHe": 0.2425,
         "mnu": 0.06,
 
@@ -96,7 +98,10 @@ def de_par(name):
             "theta_i": 3.14-0.1,
             }
     else:
-        print('{} is unknown DE model'.format(name))
+        par = {
+            "name"   : name,
+            "wDE"    : None
+            }
     return Bunch(par) 
 
 def mf_par():

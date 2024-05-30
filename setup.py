@@ -14,7 +14,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='tools_cosmo',
-    version='0.0.3',
+    version='0.0.4',
     author='Sambit Giri',
     author_email='sambit.giri@su.se',
     packages=find_packages("src"),

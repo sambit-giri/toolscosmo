@@ -4,8 +4,8 @@ FUNCTIONS RELATED TO COSMOLOGY
 
 """
 import numpy as np
-from scipy.integrate import cumtrapz, trapz, quad
-from scipy.interpolate import splrep,splev
+from scipy.integrate import cumtrapz, trapz, quad, odeint
+from scipy.interpolate import splrep, splev, interp1d
 from astropy import cosmology, units
 
 from .constants import rhoc0,c
@@ -93,29 +93,26 @@ def Ez_model(param):
         return Ez
     elif param.cosmo.solver.lower()=='camb':
         Ez = lambda z: cosmo.hubble_parameter(z)/cosmo.hubble_parameter(0)
+        return Ez
     elif param.cosmo.solver.lower()=='class':
         Ez = np.vectorize(lambda z: cosmo.Hubble(z)/cosmo.Hubble(0))
+        return Ez
     elif param.cosmo.solver.lower()=='tools_cosmo':
         pass
     else:
         print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
 
     Om = param.cosmo.Om
-    Ogamma = param.cosmo.Ogamma
-    Ol = 1.0-Om-Ogamma # Flat universe assumption
+    Or = param.cosmo.Or
+    Ol = 1.0-Om-Or # Flat universe assumption
     # print(param.DE.__dict__)
-    if param.DE.name.lower()=='wcdm':
-        w  = param.DE.w
-        Ez = lambda z: (Om*(1+z)**3 + Ogamma*(1+z)**4 + Ol*(1+z)**(3*(1+w)))**0.5
-    elif param.DE.name.lower()=='cpl':
-        w0 = param.DE.w0
-        wa = param.DE.wa
-        Ez = lambda z: (Ogamma*(1+z)**4 + Om*(1+z)**3  \
-                + Ol*(1+z)**(3*(1+w0+wa))*np.exp(-3*wa*z/(1+z)))**0.5
+    Olz = lambda z: Omega_DE(z, param)
+    if param.DE.name.lower() in ['wcdm','cpl','lcdm']:
+        Ez = lambda z: (Om*(1+z)**3 + Or*(1+z)**4 + Olz)**0.5
     elif param.DE.name.lower()=='growing_neutrino_mass':
-        Ez = lambda z: Ez_growing_nu(z, Om0=Om, Ok0=0.0, Or0=Ogamma, Onu0=param.DE.Onu, Oe0=param.DE.Oede)
+        Ez = lambda z: Ez_growing_nu(z, Om0=Om, Ok0=0.0, Or0=Or, Onu0=param.DE.Onu, Oe0=param.DE.Oede)
     else:
-        Ez = lambda z: (Om*(1+z)**3 + Ogamma*(1+z)**4 + Ol)**0.5
+        Ez = lambda z: (Om*(1+z)**3 + Or*(1+z)**4 + Ol)**0.5
     return Ez
 
 def hubble(z,param):
@@ -151,7 +148,11 @@ def growth_factor(z, param):
 
     z: array of redshifts from zmin to zmax
     """
-    if param.DE.name.lower()=='lcdm':
+    if param.code.Dz_solver.lower() in ['linder2005','linder(2005)','linder (2005)']:
+        return growth_factor_Linder2005(z, param)
+    elif param.code.Dz_solver.lower() in ['solveode','ode']:
+        return growth_factor_solveODE(z, param)
+    else:
         Om = param.cosmo.Om
         D0 = hubble(0,param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.01, 1, epsrel=5e-3, limit=100)[0]
         Dz = []
@@ -159,8 +160,6 @@ def growth_factor(z, param):
             Dz += [hubble(z[i],param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.01, 1/(1+z[i]), epsrel=5e-3, limit=100)[0]]
         Dz = np.array(Dz)
         return Dz/D0
-    else:
-        return growth_factor_Linder2005(z, param)
 
 def w_DE(z, param):
     if param.DE.name.lower()=='lcdm':
@@ -170,8 +169,81 @@ def w_DE(z, param):
     elif param.DE.name.lower()=='cpl':
         w = param.DE.w0 + param.DE.wa*z/(1+z)
     else:
-        print(f'Dark energy equation of state for {param.DE.name} is not implemented.')
+        wDE = param.DE.wDE
+        if wDE is None: 
+            print(f'Dark energy equation of state w(z) for {param.DE.name} should be provided through param.DE.wDE variable.')
+        w = wDE(z)
     return w 
+
+def Omega_DE(z, param):
+    '''
+    Evolution of dark energy density parameter.
+    '''
+    a = 1/(1+z)
+    # Define cosmological parameters
+    # H0 = param.cosmo.h0*100    # Hubble constant in km/s/Mpc
+    Omega_m = param.cosmo.Om   # Matter density parameter
+    Omega_k = param.cosmo.Ok   # Curvature density parameter
+    Omega_r = param.cosmo.Or   # Radiation density parameter
+    Omega_L = param.cosmo.Ode  # Dark energy density parameter
+    if Omega_L is None: Omega_L = 1-Omega_m-Omega_k-Omega_r
+
+    if param.DE.name.lower()=='lcdm':
+        w = -1
+        return Omega_L * a**(3*(1+w))
+    elif param.DE.name.lower()=='wcdm':
+        w = param.DE.w 
+        return Omega_L * a**(3*(1+w))
+    elif param.DE.name.lower()=='cpl':
+        w0, wa = param.DE.w0, param.DE.wa
+        return Omega_L * a**(3*(1+w0+wa)) * np.exp(-wa*a)
+    else:
+        wDE = param.DE.wDE
+        integrand = lambda a_prime: (1 + wDE(a_prime)) / a_prime
+        integral, _ = quad(integrand, a, 1)
+        return Omega_L * np.exp(3 * integral)
+
+def growth_factor_solveODE(z, param):
+    # Define cosmological parameters
+    H0 = param.cosmo.h0*100    # Hubble constant in km/s/Mpc
+    Omega_m = param.cosmo.Om   # Matter density parameter
+    Omega_k = param.cosmo.Ok   # Curvature density parameter
+    Omega_r = param.cosmo.Or   # Radiation density parameter
+    Omega_L = param.cosmo.Ode  # Dark energy density parameter
+    if Omega_L is None: Omega_L = 1-Omega_m-Omega_k-Omega_r
+
+    w = lambda a: w_DE(1/a-1, param)
+    Omega_DE_a = lambda a: Omega_DE(1/a-1, param)
+    
+    def E(a):
+        return np.sqrt(Omega_m * a**-3 + Omega_r * a**-4 + Omega_k * a**-2 + Omega_DE_a(a))
+
+    def dEda(a):
+        # Derivative of Hubble parameter w.r.t scale factor
+        return - (3/2) * Omega_m * a**-4 / E(a) - 2 * Omega_r * a**-5 / E(a) - Omega_k * a**-3 / E(a) + (3 * (1 + w(a)) * Omega_DE_a(a)) / (2 * a * E(a))
+
+    def diff_Da(y, a):
+        # Define the growth factor differential equation
+        D, dDda = y
+        dD2da2 = - (3/(2 * a**2 * E(a)**2)) * Omega_m * D - (3/a + (1/E(a)) * (dEda(a))) * dDda
+        return [dDda, dD2da2]
+
+    # Initial conditions
+    a_init = 1e-2  # Initial scale factor (early universe)
+    D_init = a_init  # Initial growth factor D(a) ≈ a
+    dDda_init = 1.0  # Initial derivative dD/da ≈ 1
+    y0 = [D_init, dDda_init]
+
+    # Scale factor range to solve over
+    a_vals = np.linspace(a_init, 1, 1000)
+    z_vals = 1/a_vals-1
+    # Solve the differential equation
+    sol = odeint(diff_Da, y0, a_vals)
+    # Extract the growth factor solution
+    D_vals = sol[:, 0]
+
+    Dz = interp1d(z_vals,D_vals)
+    return Dz(z)/Dz(0)
 
 def growth_factor_Linder2005(z, param):
     """
@@ -442,7 +514,7 @@ class astropy_cosmo:
         if param is None: param = self.param
         Om     = param.cosmo.Om
         Ob     = param.cosmo.Ob
-        Ogamma = param.cosmo.Ogamma
+        Or     = param.cosmo.Or
         Ode    = 'flat' if param.cosmo.Ode is None else param.cosmo.Ode
         h0     = param.cosmo.h0 
         if param.DE.name.lower()=='wcdm':
