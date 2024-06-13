@@ -10,6 +10,7 @@ from astropy import cosmology, units
 
 from .constants import rhoc0,c
 from .run_BoltzmannSolver import *
+from .emulate_BoltmannSolver import *
 
 def prepare_cosmo_solver(param):
     if param.code.verbose: print('Preparing cosmological solvers...')
@@ -389,6 +390,8 @@ def calc_Plin(param, **info):
         PS = {'k': class_.k, 'P': class_.pk_lin}
     elif param.file.ps.lower() in ['bacco', 'baccoemu']:
         PS = run_bacco(param, **info)
+    elif param.file.ps.lower() in ['classemu']:
+        PS = emulate_camb(param, **info)
     else:
         print('Provide linear power spectrum via param.file.ps')
         print('Option: file, CLASS, CAMB, BACCO')
