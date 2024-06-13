@@ -4,5 +4,7 @@ matplotlib
 astropy
 pytest
 scikit-learn
+
 baccoemu
 camb
+corecon

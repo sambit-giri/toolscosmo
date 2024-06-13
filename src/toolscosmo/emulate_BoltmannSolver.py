@@ -39,7 +39,7 @@ def emulate_camb(param, **info):
     elif param.DE.name.lower() in ['cpl', 'w0wa']:
         w0 = param.DE.w0 
         wa = param.DE.wa 
-        path_to_class_cpl_emu = pkg_resources.resource_filename('tools_cosmo', 'input_data/cpl_class_emulator.pkl')
+        path_to_class_cpl_emu = pkg_resources.resource_filename('toolscosmo', 'input_data/cpl_class_emulator.pkl')
         emu = NNRegressor(layers=[7, 128, 256, 128, 32])
         emu.load_model(path_to_class_cpl_emu)
         pca = emu.extra_data['pca_y']
