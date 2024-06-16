@@ -1,6 +1,6 @@
 import numpy as np 
 import matplotlib.pyplot as plt 
-import tools_cosmo
+import toolscosmo
 import pickle, os, glob
 
 from scipy.stats import binned_statistic
@@ -11,7 +11,7 @@ chdir = './'
 
 def set_param(**kwargs):
     ## set parameters
-    par = tools_cosmo.par(DE='cpl')
+    par = toolscosmo.par(DE='cpl')
 
     # par.file.ps = chdir+"CDM_Planck15_pk.dat"
     par.file.ps  = kwargs.get('ps', chdir+"CDM_Planck15_pk.dat") # "CLASS"
@@ -78,7 +78,7 @@ def model_uvlfs(**kwargs):
 
     ## UV LFs
     f_duty = kwargs.get('f_duty', 1)
-    uvlf = tools_cosmo.UVLF(par)
+    uvlf = toolscosmo.UVLF(par)
     out_lf = uvlf.UV_luminosity(f_duty=f_duty)
     # print(out_lf.keys())
     return out_lf

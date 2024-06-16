@@ -1,11 +1,11 @@
 import numpy as np 
 import matplotlib.pyplot as plt 
-import tools_cosmo
+import toolscosmo
 import pickle, os
 from copy import deepcopy
 
 ## set parameters
-par = tools_cosmo.par()
+par = toolscosmo.par()
 par.code.kmin = 0.001
 par.code.kmax = 200
 par.code.Nk   = 100
@@ -28,7 +28,7 @@ par.cosmo.h0 = 0.673
 par.cosmo.ns = 0.963
 par.cosmo.Tcmb = 2.72
 
-ms, zs, dndlnm = tools_cosmo.massfct.dndlnm(par)
+ms, zs, dndlnm = toolscosmo.massfct.dndlnm(par)
 
 zplots = [5,7,9]
 fig, ax = plt.subplots(1,1,figsize=(6,5))
@@ -43,11 +43,11 @@ plt.tight_layout()
 plt.show()
 
 par.DE.w = -0.5
-ms0, zs0, dndlnm0 = tools_cosmo.massfct.dndlnm(par)
+ms0, zs0, dndlnm0 = toolscosmo.massfct.dndlnm(par)
 par.DE.w = -1.0
-ms1, zs1, dndlnm1 = tools_cosmo.massfct.dndlnm(par)
+ms1, zs1, dndlnm1 = toolscosmo.massfct.dndlnm(par)
 par.DE.w = -1.5
-ms2, zs2, dndlnm2 = tools_cosmo.massfct.dndlnm(par)
+ms2, zs2, dndlnm2 = toolscosmo.massfct.dndlnm(par)
 zplots = [5,7,9]
 fig, ax = plt.subplots(1,1,figsize=(6,5))
 ax.set_title('Halo Mass Function')

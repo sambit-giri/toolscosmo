@@ -8,4 +8,4 @@ scikit-learn
 baccoemu
 camb
 corecon
-git+https://github.com/sambit-giri/emulator.git
+# git+https://github.com/sambit-giri/emulator.git

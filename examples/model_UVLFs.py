@@ -1,11 +1,11 @@
 import numpy as np 
 import matplotlib.pyplot as plt 
-import tools_cosmo
+import toolscosmo
 
 lstyles = ['-', '--', '-.', ':']
 
 #set parameters
-par = tools_cosmo.par()
+par = toolscosmo.par()
 par.file.ps = "CDM_Planck15_pk.dat"
 
 par.code.zmin = 5
@@ -52,15 +52,15 @@ par.lf.eps_sys = 1.0
 print(par.lf.__dict__)
 
 ## HMF
-hmf = tools_cosmo.mass_fct(par)
+hmf = toolscosmo.mass_fct(par)
 
 ## UV LFs
 M0 = 51.6
 kappa  = 1.15e-28  # Msun yr^-1 /(erg s^-1 Hz^-1)
-fstars = tools_cosmo.fstar(hmf['z'], hmf['m'], 'lf', par)
+fstars = toolscosmo.fstar(hmf['z'], hmf['m'], 'lf', par)
 
-m_ac = tools_cosmo.mass_accr(par, output=hmf)
-uvlf = tools_cosmo.UVLF(par)
+m_ac = toolscosmo.mass_accr(par, output=hmf)
+uvlf = toolscosmo.UVLF(par)
 # out_lf = uvlf.Muv(); print(out_lf.keys())
 out_lf = uvlf.UV_luminosity(); # print(out_lf.keys())
 
