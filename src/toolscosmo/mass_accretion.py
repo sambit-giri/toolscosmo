@@ -8,7 +8,8 @@ CALCULATION
 
 import numpy as np
 
-from scipy.integrate import cumtrapz, trapz, quad, odeint
+from scipy.integrate import trapz, quad, odeint
+from scipy.integrate import cumulative_trapezoid as cumtrapz
 from scipy.interpolate import splrep, splev, interp1d
 from scipy.special import erf
 from scipy.signal import savgol_filter

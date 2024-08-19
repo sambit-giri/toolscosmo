@@ -6,7 +6,8 @@ CALCULATE HALO MASS FUNCTIONS
 
 import numpy as np
 
-from scipy.integrate import cumtrapz, trapz, quad
+from scipy.integrate import trapz, quad
+from scipy.integrate import cumulative_trapezoid as cumtrapz
 from scipy.interpolate import splrep,splev
 from scipy.special import gamma
 from .cosmo import hubble, growth_factor, variance, read_powerspectrum

@@ -4,7 +4,8 @@ FUNCTIONS RELATED TO COSMOLOGY
 
 """
 import numpy as np
-from scipy.integrate import cumtrapz, trapz, quad, odeint
+from scipy.integrate import trapz, quad, odeint
+from scipy.integrate import cumulative_trapezoid as cumtrapz
 from scipy.interpolate import splrep, splev, interp1d
 from astropy import cosmology, units
 

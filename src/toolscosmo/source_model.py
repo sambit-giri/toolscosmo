@@ -9,7 +9,8 @@ import numpy as np
 # import genmassfct as gmf
 from . import massfct as gmf
 
-from scipy.integrate import cumtrapz, trapz, quad
+from scipy.integrate import trapz, quad
+from scipy.integrate import cumulative_trapezoid as cumtrapz
 from scipy.interpolate import splrep,splev
 from scipy.optimize import fsolve
 from .cosmo import hubble

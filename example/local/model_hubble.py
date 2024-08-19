@@ -1,5 +1,6 @@
 import numpy as np
-from scipy.integrate import cumtrapz, trapz, quad
+from scipy.integrate import trapz, quad
+from scipy.integrate import cumulative_trapezoid as cumtrapz
 from scipy.interpolate import splrep, splev
 import matplotlib.pyplot as plt 
 import param 
