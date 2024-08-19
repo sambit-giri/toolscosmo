@@ -36,7 +36,7 @@ For detailed documentation and how to use them, see `contents page <https://tool
 Under Development
 ------------------
 
-* Dark matter merger trees: analystical merger trees using the extended Press-Schexhter formalism 
+* Dark matter merger trees: analystical merger trees using the extended Press-Schechter formalism 
 
 Contents
 ========
