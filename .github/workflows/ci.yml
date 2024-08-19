@@ -66,5 +66,5 @@ jobs:
           # Run tests using the activated Conda environment
           source ~/.bashrc
           conda activate toolscosmo
-          pytest
+          python -m pytest tests
         shell: bash
