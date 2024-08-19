@@ -1,4 +1,4 @@
-name: CI
+name: Build and Deploy Jekyll Site
 
 on:
   push:
@@ -9,55 +9,29 @@ on:
       - master  # Trigger the workflow on pull requests to the master branch
 
 jobs:
-  test:
-    timeout-minutes: 60  # Set a 60-minute timeout for the entire job
-
-    runs-on: ubuntu-latest  # Use Ubuntu for the job
-
-    strategy:
-      matrix:
-        python-version: [3.8]  # Test specifically with Python 3.8
+  build:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository code
+      - name: Check out code
         uses: actions/checkout@v3
 
-      - name: Set up Miniconda
-        uses: conda-incubator/setup-miniconda@v2
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1  # Corrected the version to v1 due to the issue you faced
         with:
-          miniconda-version: "latest"  # Ensure Miniconda is installed
-          python-version: ${{ matrix.python-version }}
-          auto-update-conda: true
-          environment-file: environment.yml  # Environment configuration file
-          activate-environment: toolscosmo
+          ruby-version: 3.1
 
-      - name: Initialize Conda (if needed)
+      - name: Install dependencies
         run: |
-          conda init bash
-        shell: bash
+          gem install bundler
+          bundle install
 
-      - name: Verify Conda Installation
+      - name: Build Jekyll site
         run: |
-          conda info  # Print Conda info to verify installation
-        shell: bash
+          bundle exec jekyll build
 
-      - name: Update Python version in Conda environment
-        run: |
-          conda activate toolscosmo
-          conda install python=3.8 --update-deps  # Specify exact Python version
-        shell: bash
-
-      - name: Install additional dependencies
-        run: |
-          conda activate toolscosmo
-          conda install -y pip  # Ensure pip is installed
-          pip install .  # Install the package in the environment
-          conda clean --all -y  # Clean up Conda caches
-        shell: bash
-
-      - name: Run tests
-        run: |
-          conda activate toolscosmo
-          python -m pytest tests  # Run tests using pytest
-        shell: bash
-
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: jekyll-site
+          path: _site
