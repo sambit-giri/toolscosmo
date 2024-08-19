@@ -2,12 +2,12 @@
 Main modules
 ============
 
-Cosmological equations
-----------------------
-.. automodule:: simple_python_package_template.cosmo_equation
+Cosmological calculator
+-----------------------
+.. automodule:: toolscosmo.cosmo
     :members:
 
-Cosmological calculator
-----------------------
-.. automodule:: simple_python_package_template.calculator
+Running Boltzmann Solvers
+-------------------------
+.. automodule:: toolscosmo.run_BoltzmannSolver
     :members:
