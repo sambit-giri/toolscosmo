@@ -1,6 +1,7 @@
 site/
 build
 dist
+paper
 *.egg-info
 tests/__pycache__*
 
