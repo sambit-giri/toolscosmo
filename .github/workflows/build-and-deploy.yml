@@ -1,37 +1,63 @@
-name: Build and Deploy Jekyll Site
+name: CI
 
 on:
   push:
     branches:
-      - main
+      - master  # Trigger the workflow on push to the master branch
   pull_request:
     branches:
-      - main
+      - master  # Trigger the workflow on pull requests to the master branch
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  test:
+    timeout-minutes: 60  # Set a 60-minute timeout for the entire job
+
+    runs-on: ubuntu-latest  # Use Ubuntu for the job
+
+    strategy:
+      matrix:
+        python-version: [3.8]  # Test specifically with Python 3.8
 
     steps:
-      - name: Check out code
+      - name: Check out repository code
         uses: actions/checkout@v3
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1  # Updated to a stable version
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v2
         with:
-          ruby-version: 3.1  # Specify the Ruby version for Jekyll
+          miniconda-version: "latest"  # Ensure Miniconda is installed
+          python-version: ${{ matrix.python-version }}
+          auto-update-conda: true
+          environment-file: environment.yml  # Environment configuration file
+          activate-environment: toolscosmo
 
-      - name: Install dependencies
+      - name: Initialize Conda (if needed)
         run: |
-          gem install bundler
-          bundle install
+          conda init bash
+        shell: bash
 
-      - name: Build Jekyll site
+      - name: Verify Conda Installation
         run: |
-          bundle exec jekyll build
+          conda info  # Print Conda info to verify installation
+        shell: bash
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: jekyll-site
-          path: _site  # Path to the built site
+      - name: Update Python version in Conda environment
+        run: |
+          conda activate toolscosmo
+          conda install python=3.8 --update-deps  # Specify exact Python version
+        shell: bash
+
+      - name: Install additional dependencies
+        run: |
+          conda activate toolscosmo
+          conda install -y pip  # Ensure pip is installed
+          pip install .  # Install the package in the environment
+          conda clean --all -y  # Clean up Conda caches
+        shell: bash
+
+      - name: Run tests
+        run: |
+          conda activate toolscosmo
+          python -m pytest tests  # Run tests using pytest
+        shell: bash
+
