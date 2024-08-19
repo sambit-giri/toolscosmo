@@ -12,7 +12,7 @@ jobs:
   test:
     timeout-minutes: 60  # Set a 60-minute timeout for the entire job
 
-    runs-on: ubuntu-latest  # Use only Ubuntu
+    runs-on: ubuntu-latest  # Use Ubuntu for the job
 
     strategy:
       matrix:
@@ -28,43 +28,36 @@ jobs:
           miniconda-version: "latest"  # Ensure Miniconda is installed
           python-version: ${{ matrix.python-version }}
           auto-update-conda: true
-          environment-file: environment.yml
+          environment-file: environment.yml  # Environment configuration file
           activate-environment: toolscosmo
 
-      - name: Initialize Conda
+      - name: Initialize Conda (if needed)
         run: |
-          # Initialize Conda and source the bash configuration
           conda init bash
-          source ~/.bashrc
         shell: bash
 
       - name: Verify Conda Installation
         run: |
-          # Print Conda info to verify installation
-          conda info
+          conda info  # Print Conda info to verify installation
         shell: bash
 
       - name: Update Python version in Conda environment
         run: |
-          # Activate the Conda environment and update Python
-          source ~/.bashrc
           conda activate toolscosmo
           conda install python=3.8 --update-deps  # Specify exact Python version
         shell: bash
 
       - name: Install additional dependencies
         run: |
-          # Install additional dependencies
-          source ~/.bashrc
           conda activate toolscosmo
-          conda install -y pip
-          pip install .
+          conda install -y pip  # Ensure pip is installed
+          pip install .  # Install the package in the environment
+          conda clean --all -y  # Clean up Conda caches
         shell: bash
 
       - name: Run tests
         run: |
-          # Run tests using the activated Conda environment
-          source ~/.bashrc
           conda activate toolscosmo
-          python -m pytest tests
+          python -m pytest tests  # Run tests using pytest
         shell: bash
+
