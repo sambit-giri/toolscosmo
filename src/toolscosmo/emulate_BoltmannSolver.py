@@ -4,14 +4,9 @@ from time import time
 import warnings
 import os, pickle, pkg_resources
 
-def emulate_camb(param, **info):
-    try:
-        from emulator.neural_networks import NNRegressor
-    except:
-        print('Install emulator package:')
-        print('pip install git+https://github.com/sambit-giri/emulator.git')
-        exit()
+from .neural_networks import NNRegressor
 
+def emulate_class(param, **info):
     tstart = time()
     if param.code.verbose: print('Using CLASSemu to estimate linear power spectrum.')
 

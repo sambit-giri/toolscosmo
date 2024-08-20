@@ -390,7 +390,7 @@ def calc_Plin(param, **info):
     elif param.file.ps.lower() in ['bacco', 'baccoemu']:
         PS = run_bacco(param, **info)
     elif param.file.ps.lower() in ['classemu']:
-        PS = emulate_camb(param, **info)
+        PS = emulate_class(param, **info)
     else:
         print('Provide linear power spectrum via param.file.ps')
         print('Option: file, CLASS, CAMB, BACCO')
@@ -506,6 +506,20 @@ def variance(param):
         exit()
 
     return rbin, var, dlnvardlnr
+
+def rbin_to_mbin(rbin, param):
+    window = param.mf.window
+    cc     = param.mf.c
+    Om     = param.cosmo.Om
+    rhoc   = param.cosmo.rhoc
+    dc     = param.mf.dc
+
+    if (window == 'tophat' or window == 'gaussian'):
+        mbin = 4*np.pi*Om*rhoc*rbin**3/3
+    elif (window == 'sharpk' or window == 'smoothk'):
+        mbin = 4*np.pi*Om*rhoc*(cc*rbin)**3/3
+    
+    return mbin
 
 class astropy_cosmo:
     '''

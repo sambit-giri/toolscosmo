@@ -52,8 +52,8 @@ def cosmo_par():
         "Or" : 5.4e-5,
         "Ok" : 0.0,
         "Ode": None,  # Flat universe is assumed if None or 'flat'.
-        "s8" : 0.83,
-        "As" : None, #2.089e-9,
+        "s8" : 0.83,  # This will not be used if As is not None.
+        "As" : 2.089e-9,
         "h0" : 0.673,
         "ns" : 0.963,
         "YHe": 0.2425,
@@ -191,7 +191,7 @@ def lf_par():
 
 def io_files():
     par = {
-        "ps" : 'CAMB', # Plin. Option: file, CLASS, CAMB, BACCO, 'CDM_Planck15_pk.dat'.
+        "ps" : 'CLASSemu', # Plin. Option: file, CLASS, CLASSemu, CAMB, BACCO, 'CDM_Planck15_pk.dat'.
         "varfct": 'var.dat',
         "tau": 'tabulated_tau.npz',
         "cmb": False,  # If True, the Boltzmann solver will provide Cls. 

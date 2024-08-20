@@ -119,7 +119,6 @@ def dndlnm_smoothed(param):
     return mbin, zz, dndlnm
 """
 
-
 def massfct_table(param):
     """
     Writes file with logm, Dgrowth, dndm, ngtm, mgtm, z, var
