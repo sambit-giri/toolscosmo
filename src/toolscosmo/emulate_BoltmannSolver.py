@@ -30,7 +30,16 @@ def emulate_class(param, **info):
     fn_wb = lambda w0,wa: (-w0-wa)**(1/4)
 
     if param.DE.name.lower() in ['lcdm']:
-        pass
+        w0 = -1
+        wa = 0
+        path_to_class_cpl_emu = pkg_resources.resource_filename('toolscosmo', 'input_data/cpl_class_emulator.pkl')
+        emu = NNRegressor(layers=[7, 128, 256, 128, 32])
+        emu.load_model(path_to_class_cpl_emu)
+        pca = emu.extra_data['pca_y']
+        k = emu.extra_data['k']
+        X = np.array([Omc, Omb, h0, log10As, ns, w0, fn_wb(w0,wa)])
+        Y_pred = emu.predict(X)
+        y_pred = 10**emu.PCA_inverse_transform_data(Y_pred, pca)
     elif param.DE.name.lower() in ['cpl', 'w0wa']:
         w0 = param.DE.w0 
         wa = param.DE.wa 
@@ -44,7 +53,8 @@ def emulate_class(param, **info):
         y_pred = 10**emu.PCA_inverse_transform_data(Y_pred, pca)
         if param.code.verbose: print(f'{param.DE.name}: w0,wa={w0},{wa}')
     else:
-        print(f'{param.DE.name} is an unknown dark energy model for CAMB.')
+        print(f'{param.DE.name} is an unknown dark energy model for CLASSemu.')
+        return None
     
     if param.code.verbose: 
         # print(f'sigma_8={r.get_sigma8_0():.3f}')
