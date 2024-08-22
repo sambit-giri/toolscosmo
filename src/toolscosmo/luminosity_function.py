@@ -1,6 +1,5 @@
 import numpy as np
-from scipy.integrate import quad, simps
-from scipy.interpolate import splev, splrep, interp1d
+from scipy_func import *
 import matplotlib.pyplot as plt
 
 from . import constants as const
