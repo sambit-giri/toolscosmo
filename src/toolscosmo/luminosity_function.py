@@ -1,5 +1,5 @@
 import numpy as np
-from scipy_func import *
+from .scipy_func import *
 import matplotlib.pyplot as plt
 
 from . import constants as const
