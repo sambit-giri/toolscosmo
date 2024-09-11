@@ -1,7 +1,9 @@
 # Toolscosmo
 
-![CI Status](https://github.com/sambit-giri/toolscosmo/actions/workflows/ci.yml/badge.svg)
+[![License](https://img.shields.io/github/license/sambit-giri/toolscosmo.svg)](https://github.com/sambit-giri/toolscosmo/blob/main/LICENSE)
 [![GitHub Repository](https://img.shields.io/github/repo-size/sambit-giri/toolscosmo)](https://github.com/sambit-giri/toolscosmo)
+![CI Status](https://github.com/sambit-giri/toolscosmo/actions/workflows/ci.yml/badge.svg)
+
 
 A Python package for cosmological calculations required to study large-scale structures. Full documentation (with examples, installation instructions and complete module description) can be found at [readthedocs](https://toolscosmo.readthedocs.io/).
 
