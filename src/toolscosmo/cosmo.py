@@ -97,7 +97,7 @@ def Ez_model(param):
     elif param.cosmo.solver.lower()=='class':
         Ez = np.vectorize(lambda z: cosmo.Hubble(z)/cosmo.Hubble(0))
         return Ez
-    elif param.cosmo.solver.lower()=='tools_cosmo':
+    elif param.cosmo.solver.lower() in ['toolscosmo','tools_cosmo']:
         pass
     else:
         print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
@@ -108,7 +108,7 @@ def Ez_model(param):
     # print(param.DE.__dict__)
     Olz = lambda z: Omega_DE(z, param)
     if param.DE.name.lower() in ['wcdm','cpl','lcdm']:
-        Ez = lambda z: (Om*(1+z)**3 + Or*(1+z)**4 + Olz)**0.5
+        Ez = lambda z: (Om*(1+z)**3 + Or*(1+z)**4 + Olz(z))**0.5
     elif param.DE.name.lower()=='growing_neutrino_mass':
         Ez = lambda z: Ez_growing_nu(z, Om0=Om, Ok0=0.0, Or0=Or, Onu0=param.DE.Onu, Oe0=param.DE.Oede)
     else:
@@ -131,10 +131,10 @@ def hubble(z,param):
         return cosmo.hubble_parameter(z)
     elif param.cosmo.solver.lower()=='class':
         return np.vectorize(lambda z0: cosmo.Hubble(z0)/cosmo.Hubble(0)*cosmo.h()*100)(z)
-    elif param.cosmo.solver.lower()=='tools_cosmo':
+    elif param.cosmo.solver.lower() in ['tools_cosmo', 'toolscosmo']:
         pass
     else:
-        print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
+        print(f'{param.cosmo.solver} is unknown and, therefore, set to toolscosmo.')
 
     H0 = 100.0*param.cosmo.h0
     Ez = Ez_model(param)
@@ -157,12 +157,8 @@ def growth_factor(z, param):
     else:
         # print('Hamilton (2000) fitting function')
         Om = param.cosmo.Om
-        D0 = hubble(0,param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.01, 1, epsrel=5e-3, limit=100)[0]
-        Dz = []
-        for i in range(len(z)):
-            Dz += [hubble(z[i],param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.01, 1/(1+z[i]), epsrel=5e-3, limit=100)[0]]
-        Dz = np.array(Dz)
-        return Dz/D0
+        Dz = np.vectorize(lambda z: hubble(z,param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.01, 1/(1+z), epsrel=5e-3, limit=100)[0])
+        return Dz(z)/Dz(0)
 
 def w_DE(z, param):
     if param.DE.name.lower()=='lcdm':
@@ -287,7 +283,7 @@ def comoving_distance(z,param):
         return cosmo.comoving_radial_distance(z)
     elif param.cosmo.solver.lower()=='class':
         return np.vectorize(lambda z0: cosmo.comoving_distance(z0))(z)
-    elif param.cosmo.solver.lower()=='tools_cosmo':
+    elif param.cosmo.solver.lower() in ['toolscosmo','tools_cosmo']:
         pass
     else:
         print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
@@ -316,7 +312,7 @@ def luminosity_distance(z,param):
         return cosmo.luminosity_distance(z)
     elif param.cosmo.solver.lower()=='class':
         return np.vectorize(lambda z0: cosmo.luminosity_distance(z0))(z)
-    elif param.cosmo.solver.lower()=='tools_cosmo':
+    elif param.cosmo.solver.lower() in ['toolscosmo','tools_cosmo']:
         pass
     else:
         print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
@@ -342,7 +338,7 @@ def distance_modulus(z,param):
     elif param.cosmo.solver.lower()=='class':
         D_L = np.vectorize(lambda z0: cosmo.luminosity_distance(z0))(z)
         return 5*np.log10(D_L)+25
-    elif param.cosmo.solver.lower()=='tools_cosmo':
+    elif param.cosmo.solver.lower() in ['toolscosmo','tools_cosmo']:
         pass
     else:
         print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
@@ -381,7 +377,9 @@ def read_powerspectrum(param, **info):
 
 def calc_Plin(param, **info):
     # print(param.file.ps)
-    if param.file.ps.lower()=='camb':
+    if isinstance(param.file.ps, dict):
+        return param.file.ps
+    elif param.file.ps.lower()=='camb':
         r = run_camb(param)
         PS = {'k': r['k'], 'P': r['P']}
     elif param.file.ps.lower()=='class':

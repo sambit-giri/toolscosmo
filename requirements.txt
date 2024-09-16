@@ -3,7 +3,7 @@ scipy
 matplotlib
 astropy
 pytest
-scikit-learn
+scikit-learn==1.2.0
 tqdm
 baccoemu
 camb
