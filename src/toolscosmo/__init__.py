@@ -3,6 +3,7 @@ from . import mass_accretion, source_model, luminosity_function
 from . import run_BoltzmannSolver, emulate_BoltmannSolver
 from . import massfct
 from . import merger_trees
+from . import cython_ParkinsonColeHelly2008
 
 from .param import *
 from .cosmo import *

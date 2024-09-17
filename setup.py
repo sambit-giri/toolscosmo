@@ -15,7 +15,7 @@ with open('requirements.txt') as f:
     requirements = f.read().splitlines()
 
 # Check if the Cython source file exists
-cython_files = ["src/toolscosmo/cython_merger_tree.pyx"]
+cython_files = ["src/toolscosmo/cython_ParkinsonColeHelly2008.pyx"]
 
 for cython_file in cython_files:
     if not os.path.isfile(cython_file):
@@ -24,7 +24,7 @@ for cython_file in cython_files:
 # Define the extension module
 extensions = [
     Extension(
-        'toolscosmo.cython_merger_tree',
+        'toolscosmo.cython_ParkinsonColeHelly2008',
         cython_files,
         language="c++",
         include_dirs=[np.get_include()]

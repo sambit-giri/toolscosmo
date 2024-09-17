@@ -150,10 +150,6 @@ class ParkinsonColeHelly2008:
         self.g2 = g2 
         self.M_res = M_res 
 
-        self.prepare_sigmaM()
-        self.J_tck = None
-        self.prepare_Jfit()
-
     def J(self, u_res):
         if self.J_tck is None:
             fun = lambda u: (1+1/u**2)**(self.g1/2)
@@ -162,14 +158,17 @@ class ParkinsonColeHelly2008:
             return splev(u_res, self.J_tck)
     
     def prepare_Jfit(self):
-        print('Creating the table for J(u_res) function...')
+        if self.param.code.verbose:
+            print('Creating the table for J(u_res) function...')
         uu = np.linspace(1e-5, 300.0, 600)
         JJ = np.array([self.J(u0) for u0 in tqdm(uu)])
         self.J_tck = splrep(uu, JJ)
-        print('...done')
+        if self.param.code.verbose:
+            print('...done')
     
     def prepare_sigmaM(self):
-        print('Computing the sigma(M) and required derivatives...')
+        if self.param.code.verbose:
+            print('Computing the sigma(M) and required derivatives...')
         param = self.param
         param.file.ps = calc_Plin(param)
         rbin, mbin, var = sigma_squared_table(param)
@@ -179,7 +178,8 @@ class ParkinsonColeHelly2008:
         alpha_tck = splrep(np.log(mbin), -dlnsbin_dlnMbin)
         self.lnsigma_tck = lnsigma_tck
         self.alpha_tck = alpha_tck
-        print('...done')
+        if self.param.code.verbose:
+            print('...done')
 
     def sigma(self, M):
         return np.exp(splev(np.log(M), self.lnsigma_tck))
@@ -256,7 +256,7 @@ class ParkinsonColeHelly2008:
                     *( 0.5**self.eta(q_res,M2) - q_res**self.eta(q_res,M2) )
         return Nupp
     
-    def N_upper(self, z, M2, q_res, Dz=1):
+    def N_upper(self, z, M2, q_res):
         """ 
         The upper limit to the expected number of
         resolved fragments produced in a redshift
@@ -270,6 +270,7 @@ class ParkinsonColeHelly2008:
             tree algorithm. """
 
         Integral = self.N_upper_Dz1(z, M2, q_res)
+        # print('I = ', Integral)
 
         s2 = self.sigma(M2)
         s_h = self.sigma(M2/2)
@@ -295,7 +296,7 @@ class ParkinsonColeHelly2008:
         FF = np.sqrt(2/np.pi)*self.J(u_res)*(G0/s2)*((d2/s2)**g2)*self.ddelta_dz(z)*dz
         return FF
     
-    def run(self, M0, z0, z_max, M_res=None):
+    def run(self, M0, z0, z_max, M_res=None, use_cython=True, max_tree_length=1000):
         if M_res is None: M_res = self.M_res
         else: self.M_res = M_res
 
@@ -305,53 +306,59 @@ class ParkinsonColeHelly2008:
         print(f'Mass resolution    = {M_res:.2e}')
         print(f'Maximum redshift   = {z_max:.5f}')
 
-        self.z_tree = [z0]
-        self.M_tree = [M0]
-        self.z_subh = []
-        self.M_subh = []
+        if use_cython:
+            from . import cython_ParkinsonColeHelly2008
 
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-        tstart = time()
-        count  = 0
-        while self.z_tree[-1] < z_max and self.M_tree[-1] > 2*M_res:
-            logging.info(f'z = {self.z_tree[-1]:.6f} | main M = {self.M_tree[-1]:.3e} | counter = {count} | t = {(time()-tstart)/60:.2f} mins')
-            count += 1
-            # print(f'Modeling splitting of halo with mass {self.M_tree[-1]:.2e} at z={self.z_tree[-1]:.5f}...')
-            M2 = self.M_tree[-1]
-            q_res = M_res/M2
+            param = self.param
+            cosmo = cython_ParkinsonColeHelly2008.CosmoParams(
+                                        Om = param.cosmo.Om, 
+                                        Ob = param.cosmo.Ob, 
+                                        Or = param.cosmo.Or, 
+                                        Ok = param.cosmo.Ok, 
+                                        Ode = 1-param.cosmo.Om, 
+                                        h0  = param.cosmo.h0, 
+                                        )
+            
+            param.file.ps = calc_Plin(param)
+            rbin, mbin, var = sigma_squared_table(param)
 
-            r1 = np.random.uniform()
-            if r1 > self.N_upper(self.z_tree[-1], M2, q_res):
-                # No split occurs, but the halo
-                # mass M2 is reduced to M2(1 - F).
-                M_new  = M2*( 1 - self.F(self.z_tree[-1], M2, q_res) )
-                self.M_tree.append(M_new)
-                z_new  = self.z_tree[-1] + self.Dz(self.z_tree[-1], M2, q_res)
-                self.z_tree.append(z_new)
-                # print(f'Halo reduced to mass {self.M_tree[-1]:.2e}.')
-            else:
-                r2 = np.random.uniform()
-                # We use inverse transform techqniue to 
-                # draw a random number from our distrbution.
-                et = self.eta(q_res, M2)
-                q = (q_res**et + (2**(-et)-q_res**et)*r2)**(1/et)
+            z_tree, M_tree, z_subh, M_subh = cython_ParkinsonColeHelly2008.ParkinsonColeHelly2008_run(
+                                    M0, z0, z_max, 
+                                    cosmo, 
+                                    mbin, 
+                                    np.sqrt(var),
+                                    M_res = M_res, 
+                                    e1 = self.e1, 
+                                    e2 = self.e2, 
+                                    G0 = self.G0, 
+                                    g1 = self.g1, 
+                                    g2 = self.g2,
+                                    max_tree_length=max_tree_length,
+                                    )
+            self.z_tree, self.M_tree, self.z_subh, self.M_subh = z_tree, M_tree, z_subh, M_subh
+            
+        else:
+            self.prepare_sigmaM()
+            self.J_tck = None
+            self.prepare_Jfit()
 
-                r3 = np.random.uniform()
-                if r3 < self.R(q, M2, q_res):
-                    # Two progenitors are created with 
-                    # mass q*M2 and M2*(1 - F - q)
+            self.z_tree = [z0]
+            self.M_tree = [M0]
+            self.z_subh = []
+            self.M_subh = []
 
-                    M_new1 = M2*q
-                    M_new2 = M2*(1 - self.F(self.z_tree[-1], M2, q_res) - q)
+            logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+            tstart = time()
+            count  = 0
+            while self.z_tree[-1] < z_max and self.M_tree[-1] > 2*M_res and count < max_tree_length:
+                logging.info(f'z = {self.z_tree[-1]:.6f} | main M = {self.M_tree[-1]:.3e} | counter = {count} | t = {(time()-tstart)/60:.2f} mins')
+                count += 1
+                # print(f'Modeling splitting of halo with mass {self.M_tree[-1]:.2e} at z={self.z_tree[-1]:.5f}...')
+                M2 = self.M_tree[-1]
+                q_res = M_res/M2
 
-                    self.M_tree.append(max(M_new1,M_new2))
-                    self.M_subh.append(min(M_new1,M_new2))
-
-                    self.z_subh.append(self.z_tree[-1])
-                    z_new  = self.z_tree[-1] + self.Dz(self.z_tree[-1], M2, q_res)
-                    self.z_tree.append(z_new)
-                    # print(f'Halo fragmented into two haloes of mass {self.M_tree[-1]:.2e} and {self.M_subh[-1]:.2e}.')
-                else:
+                r1 = np.random.uniform()
+                if r1 > self.N_upper(self.z_tree[-1], M2, q_res):
                     # No split occurs, but the halo
                     # mass M2 is reduced to M2(1 - F).
                     M_new  = M2*( 1 - self.F(self.z_tree[-1], M2, q_res) )
@@ -359,6 +366,36 @@ class ParkinsonColeHelly2008:
                     z_new  = self.z_tree[-1] + self.Dz(self.z_tree[-1], M2, q_res)
                     self.z_tree.append(z_new)
                     # print(f'Halo reduced to mass {self.M_tree[-1]:.2e}.')
+                else:
+                    r2 = np.random.uniform()
+                    # We use inverse transform techqniue to 
+                    # draw a random number from our distrbution.
+                    et = self.eta(q_res, M2)
+                    q = (q_res**et + (2**(-et)-q_res**et)*r2)**(1/et)
+
+                    r3 = np.random.uniform()
+                    if r3 < self.R(q, M2, q_res):
+                        # Two progenitors are created with 
+                        # mass q*M2 and M2*(1 - F - q)
+
+                        M_new1 = M2*q
+                        M_new2 = M2*(1 - self.F(self.z_tree[-1], M2, q_res) - q)
+
+                        self.M_tree.append(max(M_new1,M_new2))
+                        self.M_subh.append(min(M_new1,M_new2))
+
+                        self.z_subh.append(self.z_tree[-1])
+                        z_new  = self.z_tree[-1] + self.Dz(self.z_tree[-1], M2, q_res)
+                        self.z_tree.append(z_new)
+                        # print(f'Halo fragmented into two haloes of mass {self.M_tree[-1]:.2e} and {self.M_subh[-1]:.2e}.')
+                    else:
+                        # No split occurs, but the halo
+                        # mass M2 is reduced to M2(1 - F).
+                        M_new  = M2*( 1 - self.F(self.z_tree[-1], M2, q_res) )
+                        self.M_tree.append(M_new)
+                        z_new  = self.z_tree[-1] + self.Dz(self.z_tree[-1], M2, q_res)
+                        self.z_tree.append(z_new)
+                        # print(f'Halo reduced to mass {self.M_tree[-1]:.2e}.')
 
         return {
             'z_main': np.array(self.z_tree), 

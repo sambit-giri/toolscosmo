@@ -1,13 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import splrep, splev
+from time import time
 
 import toolscosmo
 from toolscosmo import merger_trees
 
 param = toolscosmo.par('lcdm')
 param.code.zmin = 0.0
-param.code.kmax = 500
+param.code.kmax = 50 #500
 param.code.Nrbin = 300
 param.cosmo.Om = 0.25
 param.cosmo.Or = 0.0
@@ -123,5 +124,56 @@ ax.axis([0,1,1e-3,1e2])
 plt.tight_layout()
 plt.show()
 
+
 Mtree_sim = merger_trees.ParkinsonColeHelly2008(param)
-Mtree = Mtree_sim.run(1e12, 0, 5, 1e4)
+m_tree = Mtree_sim.run(1e12, 0, 3, 1e4, max_tree_length=5000000)
+
+
+cosmo = toolscosmo.cython_ParkinsonColeHelly2008.CosmoParams(
+            Om = param.cosmo.Om, 
+            Ob = param.cosmo.Ob, 
+            Or = param.cosmo.Or, 
+            Ok = param.cosmo.Ok, 
+            Ode = 1-param.cosmo.Om, 
+            h0  = param.cosmo.h0, 
+            )
+
+print(Mtree_sim.Dz(0, 1e12, 1e8/1e12))
+lnsigma_tck, alpha_tck = toolscosmo.cython_ParkinsonColeHelly2008.prepare_sigmaM(mbin, np.sqrt(var))
+print(toolscosmo.cython_ParkinsonColeHelly2008.Dz(0, 1e12, 1e8/1e12, lnsigma_tck, alpha_tck, cosmo, 0.1, 0.1, 0.57, 0.38, -0.01))
+# exit()
+
+z_tree, M_tree, z_subh, M_subh = toolscosmo.cython_ParkinsonColeHelly2008.ParkinsonColeHelly2008_run(
+                                    1e12, 0, 3, 
+                                    cosmo, 
+                                    mbin, 
+                                    np.sqrt(var),
+                                    M_res=1e4, 
+                                    e1=0.1, 
+                                    e2=0.1, 
+                                    G0=0.57, 
+                                    g1=0.38, 
+                                    g2=-0.01
+                                    )
+exit()
+
+t0 = time()
+# D0 = toolscosmo.growth_factor(1,param); print(f'D(z)={D0:.3f}')
+Mtree_sim.prepare_sigmaM() 
+# s0 = Mtree_sim.sigma(1e12); print(f'sigma(M)={s0:.3f}')
+# a0 = Mtree_sim.alpha(1e12); print(f'alpha(M)={a0:.3f}')
+Mtree_sim.prepare_Jfit()
+j0 = Mtree_sim.J(1); print(f'J(u)={j0:.3f}')
+dt0 = time()-t0
+print(f'Runtime: {dt0:.6f} s')
+
+t1 = time()
+# D1 = toolscosmo.cython_ParkinsonColeHelly2008.GrowthFactor(1, cosmo); print(f'D(z)={D1:.3f}')
+# lnsigma_tck, alpha_tck = toolscosmo.cython_ParkinsonColeHelly2008.prepare_sigmaM(mbin, np.sqrt(var))
+# s1 = toolscosmo.cython_ParkinsonColeHelly2008.sigma(1e12, lnsigma_tck); print(f'sigma(M)={s1:.3f}')
+# a1 = toolscosmo.cython_ParkinsonColeHelly2008.alpha(1e12, alpha_tck); print(f'alpha(M)={a1:.3f}')
+J_tck = toolscosmo.cython_ParkinsonColeHelly2008.prepare_Jfit()
+j1 = toolscosmo.cython_ParkinsonColeHelly2008.J(1, J_tck); print(f'J(u)={j1:.3f}')
+dt1 = time()-t1
+print(f'Runtime: {dt1:.6f} s | {dt0/dt1:.3f} times faster')
+
