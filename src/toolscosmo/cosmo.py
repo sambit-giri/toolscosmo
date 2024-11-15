@@ -5,7 +5,7 @@ FUNCTIONS RELATED TO COSMOLOGY
 """
 import numpy as np
 from astropy import cosmology, units
-from.scipy_func import *
+from .scipy_func import *
 
 from .constants import rhoc0,c
 from .run_BoltzmannSolver import *
@@ -157,7 +157,7 @@ def growth_factor(z, param):
     else:
         # print('Hamilton (2000) fitting function')
         Om = param.cosmo.Om
-        Dz = np.vectorize(lambda z: hubble(z,param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.01, 1/(1+z), epsrel=5e-3, limit=100)[0])
+        Dz = np.vectorize(lambda z: hubble(z,param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.001 if 1/(1+z)>0.01 else 1/(1+z)/10., 1/(1+z), epsrel=5e-3, limit=100)[0])
         return Dz(z)/Dz(0)
 
 def w_DE(z, param):
@@ -228,7 +228,7 @@ def growth_factor_solveODE(z, param):
         return [dDda, dD2da2]
 
     # Initial conditions
-    a_init = 1e-2  # Initial scale factor (early universe)
+    a_init = 1e-3  # Initial scale factor (early universe)
     D_init = a_init  # Initial growth factor D(a) ≈ a
     dDda_init = 1.0  # Initial derivative dD/da ≈ 1
     y0 = [D_init, dDda_init]
