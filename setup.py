@@ -34,7 +34,7 @@ extensions = [
 
 setup(
     name='toolscosmo',
-    version='0.1.5',
+    version='0.1.6',
     author='Sambit Giri',
     author_email='sambit.giri@su.se',
     packages=find_packages("src"),
@@ -42,7 +42,7 @@ setup(
     package_data={'toolscosmo': ['input_data/*']},
     install_requires=requirements,
     include_package_data=True,
-    ext_modules=cythonize(extensions, language_level=3),
+    # ext_modules=cythonize(extensions, language_level=3),
     include_dirs=[np.get_include()],
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',

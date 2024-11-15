@@ -114,12 +114,12 @@ def zeldovich_approximation(delta, kx, ky, kz, D1):
     k_squared[0, 0, 0] = 1  # Prevent division by zero
 
     delta_k = fftn(delta, norm='ortho')
-    phi_k = -delta_k / k_squared
+    phi_k = - delta_k / k_squared
     phi_k[0, 0, 0] = 0
 
-    disp_x1 = ifftn(1j * kx * phi_k, norm='ortho').real * D1
-    disp_y1 = ifftn(1j * ky * phi_k, norm='ortho').real * D1
-    disp_z1 = ifftn(1j * kz * phi_k, norm='ortho').real * D1
+    disp_x1 = ifftn(-1j * kx * phi_k, norm='ortho').real * D1
+    disp_y1 = ifftn(-1j * ky * phi_k, norm='ortho').real * D1
+    disp_z1 = ifftn(-1j * kz * phi_k, norm='ortho').real * D1
 
     return disp_x1, disp_y1, disp_z1
 
@@ -207,7 +207,7 @@ def generate_initial_conditions(grid_size, box_size, z, param, LPT=2, power_spec
     D2 = D2_growth_factor(a, param)
 
     if verbose: print('Generating Gaussian random field...')
-    delta, kx, ky, kz = kwargs.get('delta_grf', None)
+    delta = kwargs.get('delta_grf', None)
     if delta is None:
         delta, kx, ky, kz = generate_gaussian_random_field(grid_size, box_size, power_spectrum=power_spectrum, param=param, **kwargs)
     else:
