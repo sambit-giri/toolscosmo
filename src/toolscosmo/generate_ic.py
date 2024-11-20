@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.fft import fftn, ifftn, rfftn, irfftn, fftshift, ifftshift
 
-from .cosmo import growth_factor, get_Plin
+from .cosmo import growth_factor, get_Plin, hubble
 
 def growth_rate(z, param, delta_a=1e-5):
     """
@@ -162,7 +162,56 @@ def second_order_displacement(delta, kx, ky, kz, D2):
     disp_x2, disp_y2, disp_z2 = D2 * Psi_2LPT_r[0], D2 * Psi_2LPT_r[1], D2 * Psi_2LPT_r[2]
     return disp_x2, disp_y2, disp_z2
 
-def generate_initial_conditions(grid_size, box_size, z, param, LPT=2, power_spectrum=None, verbose=True, **kwargs):
+def compute_velocity(delta, kx, ky, kz, a, param):
+    """
+    Compute the peculiar velocity field in real space.
+
+    Parameters
+    ----------
+    delta : ndarray
+        The density field in real space.
+    kx, ky, kz : ndarray
+        Wavevectors corresponding to the grid in Fourier space.
+    a : float
+        Scale factor corresponding to the desired redshift.
+    param : dict
+        Cosmological parameters dictionary, used to compute H(a) and f(a).
+
+    Returns
+    -------
+    vx, vy, vz : ndarray
+        Velocity components in real space.
+    """
+    H_of_a = lambda a, param: hubble(1/a - 1,param)
+
+    # Growth rate f(a)
+    f_a = growth_rate(1/a - 1, param)
+    
+    # Hubble parameter at scale factor a
+    H_a = H_of_a(a, param)  # Define this function if not already present
+
+    # Fourier transform the density field
+    delta_k = fftn(delta, norm='ortho')
+
+    # Compute velocity potential in Fourier space
+    k_squared = kx**2 + ky**2 + kz**2
+    k_squared[0, 0, 0] = 1  # Prevent division by zero
+    phi_k = -delta_k / k_squared
+    phi_k[0, 0, 0] = 0  # Avoid zero-mode issues
+
+    # Velocity field components in Fourier space
+    vx_k = 1j * kx * phi_k * a * H_a * f_a
+    vy_k = 1j * ky * phi_k * a * H_a * f_a
+    vz_k = 1j * kz * phi_k * a * H_a * f_a
+
+    # Transform back to real space
+    vx = ifftn(vx_k, norm='ortho').real
+    vy = ifftn(vy_k, norm='ortho').real
+    vz = ifftn(vz_k, norm='ortho').real
+
+    return vx, vy, vz
+
+def generate_initial_conditions(grid_size, box_size, z, param, LPT=2, power_spectrum=None, verbose=True, model_velocity=True, **kwargs):
     """
     Generate cosmological initial conditions using Lagrangian Pertubation Theory (LPT).
 
@@ -235,7 +284,18 @@ def generate_initial_conditions(grid_size, box_size, z, param, LPT=2, power_spec
     particles_y %= box_size
     particles_z %= box_size
 
-    return np.stack([particles_x.flatten(), particles_y.flatten(), particles_z.flatten()], axis=-1)
+    # Flatten arrays for output
+    positions = np.stack([particles_x.flatten(), particles_y.flatten(), particles_z.flatten()], axis=-1)
+    out = {'positions': positions}
+
+    if model_velocity:
+        if verbose: print('Computing velocities...')
+        vx, vy, vz = compute_velocity(delta, kx, ky, kz, a, param)
+        if verbose: print('done')
+        velocities = np.stack([vx.flatten(), vy.flatten(), vz.flatten()], axis=-1)
+        out['velocities'] = velocities
+
+    return out
 
 def particles_on_grid(positions, grid_size, box_size, MAS='PCS', verbose=True):
     """

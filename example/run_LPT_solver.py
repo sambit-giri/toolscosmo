@@ -12,8 +12,8 @@ z1 = 149.
 z2 = 9.
 
 delta_grf, kx, ky, kz = tcm.generate_gaussian_random_field(grid_size, box_size, param=param)
-particle_pos_z1 = tcm.generate_initial_conditions(grid_size, box_size, z1, param, LPT=2, delta_grf=delta_grf)
-particle_pos_z2 = tcm.generate_initial_conditions(grid_size, box_size, z2, param, LPT=2, delta_grf=delta_grf)
+particle_pos_z1 = tcm.generate_initial_conditions(grid_size, box_size, z1, param, LPT=2, delta_grf=delta_grf)['positions']
+particle_pos_z2 = tcm.generate_initial_conditions(grid_size, box_size, z2, param, LPT=2, delta_grf=delta_grf)['positions']
 delta_z1 = tcm.particles_on_grid(particle_pos_z1, grid_size, box_size)
 delta_z2 = tcm.particles_on_grid(particle_pos_z2, grid_size, box_size)
 
