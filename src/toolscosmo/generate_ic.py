@@ -1,5 +1,6 @@
 import numpy as np
 from numpy.fft import fftn, ifftn, rfftn, irfftn, fftshift, ifftshift
+from skimage import transform
 
 from .cosmo import growth_factor, get_Plin, hubble
 
@@ -108,44 +109,56 @@ def generate_gaussian_random_field(grid_size, box_size, power_spectrum=None, par
     delta_x = ifftn(delta_k, norm='ortho').real
     return delta_x, kx, ky, kz
 
-def zeldovich_approximation(delta, kx, ky, kz, D1):
-    """Calculate the displacement field using the Zel'dovich approximation (1LPT)."""
+def zeldovich_approximation(delta, kx, ky, kz, D1, grid_size, filter_aliasing=True):
+    """
+    Calculate the displacement field using the Zel'dovich approximation (1LPT).
+    
+    1LPT equation: Psi_i = - ∂phi/∂xi, where ∇^2phi = -δ.
+    """
     k_squared = kx**2 + ky**2 + kz**2
     k_squared[0, 0, 0] = 1  # Prevent division by zero
 
+    # Solve Poisson equation in Fourier space: phi_k = -delta_k / k^2
     delta_k = fftn(delta, norm='ortho')
+    
     phi_k = - delta_k / k_squared
-    phi_k[0, 0, 0] = 0
+    phi_k[0, 0, 0] = 0  # Ensure no monopole contribution
 
+    # Compute displacements Psi_i = -∂phi/∂ki
     disp_x1 = ifftn(-1j * kx * phi_k, norm='ortho').real * D1
     disp_y1 = ifftn(-1j * ky * phi_k, norm='ortho').real * D1
     disp_z1 = ifftn(-1j * kz * phi_k, norm='ortho').real * D1
 
     return disp_x1, disp_y1, disp_z1
 
-def second_order_displacement(delta, kx, ky, kz, D2):
-    """Calculate the second-order displacement field using 2LPT."""
+def second_order_displacement(delta, kx, ky, kz, D2, grid_size, filter_aliasing=True):
+    """
+    Calculate the second-order displacement field using 2LPT.
+    
+    2LPT equation: Psi_ij = ∂ij_phi_2LPT, where phi_2LPT = -S_ij S_kl (delta_k / k^2).
+    """
     k_squared = kx**2 + ky**2 + kz**2
-    k_squared[0, 0, 0] = 1
+    k_squared[0, 0, 0] = 1  # Prevent division by zero
 
     delta_k = fftn(delta, norm='ortho')
+    
     phi_k = -delta_k / k_squared
     phi_k[0, 0, 0] = 0
 
-    # 1LPT Displacement Field in Fourier space
+    # Compute 1LPT Psi_ij
     Psi_1LPT_k = -1j * phi_k * np.array([kx, ky, kz])
     Psi_1LPT_r = np.array([ifftn(Psi_1LPT_k[i], norm='ortho').real for i in range(3)])
 
-    # Calculate the second-order potential
+    # 2LPT term S_ij S_kl in real space
     phi_dxdx = 1j * np.einsum("ijkl,mjkl->imjkl", np.array([kx, ky, kz]), Psi_1LPT_k)
     phi_2LPT = (phi_dxdx[0, 0] * phi_dxdx[1, 1] - phi_dxdx[0, 1]**2 +
                 phi_dxdx[0, 0] * phi_dxdx[2, 2] - phi_dxdx[0, 2]**2 +
                 phi_dxdx[2, 2] * phi_dxdx[1, 1] - phi_dxdx[2, 1]**2)
-    
-    # Compute the Fourier transform of the 2LPT potential
+
+    # Compute Fourier transform of 2LPT potential
     phi_2LPT_k = rfftn(phi_2LPT, norm='ortho')
-    
-    # Adjust shapes of kx, ky, kz to match rfftn output (using slicing)
+
+    # Adjust shapes of kx, ky, kz for real FFT space
     kx_r, ky_r, kz_r = np.meshgrid(
         2 * np.pi * np.fft.fftfreq(delta.shape[0], d=1.0),
         2 * np.pi * np.fft.fftfreq(delta.shape[1], d=1.0),
@@ -155,7 +168,7 @@ def second_order_displacement(delta, kx, ky, kz, D2):
     k_squared_r = kx_r**2 + ky_r**2 + kz_r**2
     k_squared_r[0, 0, 0] = 1  # Prevent division by zero
 
-    # Compute the 2LPT displacement field
+    # Compute 2LPT Psi_ij = -∇phi / k^2
     Psi_2LPT_k = -1j * phi_2LPT_k * np.array([kx_r, ky_r, kz_r]) / k_squared_r
     Psi_2LPT_r = np.array([irfftn(Psi_2LPT_k[i], norm='ortho').real for i in range(3)])
 
@@ -211,7 +224,8 @@ def compute_velocity(delta, kx, ky, kz, a, param):
 
     return vx, vy, vz
 
-def generate_initial_conditions(grid_size, box_size, z, param, LPT=2, power_spectrum=None, verbose=True, model_velocity=True, **kwargs):
+def generate_initial_conditions(grid_size, box_size, z, param, LPT=2, power_spectrum=None, verbose=True, 
+                                filter_aliasing=True, model_velocity=False, **kwargs):
     """
     Generate cosmological initial conditions using Lagrangian Pertubation Theory (LPT).
 
@@ -265,11 +279,11 @@ def generate_initial_conditions(grid_size, box_size, z, param, LPT=2, power_spec
 
     if verbose: print(f'Displacing particles using {LPT}LPT...')
     # 1LPT (Zel'dovich Approximation)
-    disp_x1, disp_y1, disp_z1 = zeldovich_approximation(delta, kx, ky, kz, D1)
+    disp_x1, disp_y1, disp_z1 = zeldovich_approximation(delta, kx, ky, kz, D1, grid_size, filter_aliasing=filter_aliasing)
     # 2LPT Displacement
     disp_x2, disp_y2, disp_z2 = (0, 0, 0)
     if LPT > 1:
-        disp_x2, disp_y2, disp_z2 = second_order_displacement(delta, kx, ky, kz, D2)
+        disp_x2, disp_y2, disp_z2 = second_order_displacement(delta, kx, ky, kz, D2, grid_size, filter_aliasing=filter_aliasing)
     if verbose: print('done')
 
     # Initial particle positions

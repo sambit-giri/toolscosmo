@@ -4,6 +4,7 @@ import toolscosmo as tcm
 import tools21cm as t2c
 
 grid_size = 128
+res_factor = 2
 box_size  = 500 #Mpc/h 
 param = tcm.par()
 param.file.ps = tcm.get_Plin(param)
@@ -11,20 +12,21 @@ param.file.ps = tcm.get_Plin(param)
 z1 = 149.
 z2 = 9.
 
-delta_grf, kx, ky, kz = tcm.generate_gaussian_random_field(grid_size, box_size, param=param)
-particle_pos_z1 = tcm.generate_initial_conditions(grid_size, box_size, z1, param, LPT=2, delta_grf=delta_grf)['positions']
-particle_pos_z2 = tcm.generate_initial_conditions(grid_size, box_size, z2, param, LPT=2, delta_grf=delta_grf)['positions']
+delta_grf, kx, ky, kz = tcm.generate_gaussian_random_field(grid_size*res_factor, box_size, param=param)
+particle_pos_z1 = tcm.generate_initial_conditions(grid_size*res_factor, box_size, z1, param, LPT=2, delta_grf=delta_grf, filter_aliasing=1)['positions']
+particle_pos_z2 = tcm.generate_initial_conditions(grid_size*res_factor, box_size, z2, param, LPT=2, delta_grf=delta_grf, filter_aliasing=1)['positions']
 delta_z1 = tcm.particles_on_grid(particle_pos_z1, grid_size, box_size)
 delta_z2 = tcm.particles_on_grid(particle_pos_z2, grid_size, box_size)
 
 fig, axs = plt.subplots(1,3,figsize=(12,4))
-xx = np.linspace(0,box_size,grid_size)
 axs[0].set_title('Gaussian Random Field')
-axs[0].pcolor(xx, xx, delta_grf[:,:,64])
+xx = np.linspace(0,box_size,grid_size*res_factor)
+axs[0].pcolor(xx, xx, delta_grf[:,:,grid_size*res_factor//2])
+xx = np.linspace(0,box_size,grid_size)
 axs[1].set_title(f'$z={z1}$')
-axs[1].pcolor(xx, xx, delta_z1[:,:,64])
+axs[1].pcolor(xx, xx, delta_z1[:,:,grid_size//2])
 axs[2].set_title(f'$z={z2}$')
-axs[2].pcolor(xx, xx, delta_z2[:,:,64])
+axs[2].pcolor(xx, xx, delta_z2[:,:,grid_size//2])
 for ax in axs.flatten():
     ax.set_xlabel('[Mpc/$h$]')
     ax.set_ylabel('[Mpc/$h$]')
