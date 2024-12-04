@@ -1,6 +1,5 @@
 import numpy as np
 from numpy.fft import fftn, ifftn, rfftn, irfftn, fftshift, ifftshift
-from skimage import transform
 
 from .cosmo import growth_factor, get_Plin, hubble
 
