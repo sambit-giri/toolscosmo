@@ -33,10 +33,10 @@ redshift = 9
 b1 = 1.0  
 b2 = 0.5
 bG2 = -1
-bGamma3 = 0.2
+bGamma3 = 0.0 #0.2
 R2 = 0.1
-Pshot = 1
-cs2 = 0.01
+Pshot = 0.0 #1
+cs2 = 0.00 #0.01
 
 fig, axs = plt.subplots(2,4,figsize=(15,5))
 cmap = plt.get_cmap('jet')
@@ -112,6 +112,67 @@ for i0 in param_array:
     pmod = eft.model_P_tracer(k_mod, b1, b2, bG2, bGamma3, R2, Pshot, i0, redshift)
     axs[1,3].loglog(k_mod, pmod*k_mod**3/2/np.pi**2, color=cmap(norm(i0)))
 cbar = fig.colorbar(sm, ax=axs[1,3], orientation='vertical', pad=0.01)
+for ax in axs.flatten():
+    ax.set_xlabel(f'$k [h/\mathrm{{Mpc}}]$')
+    ax.set_ylabel(f'$P(k)$')
+plt.tight_layout()
+plt.show()
+
+
+##### W. Qin et al., Phys. Rev. D106, 123506 (2022)
+
+par = toolscosmo.par()
+plin = toolscosmo.get_Plin(par)
+par.file.ps = plin
+eft = toolscosmo.EFTformalism_Qin2022(par, save_folder='work/IntegralMatrices', verbose=False)
+eft.compute_tracer_intergrals()
+ps_fit = eft.fit_P_linear(plin=plin)
+
+k_mod = np.logspace(-3, np.log10(2), 150)
+redshift = 9
+b1 = 1.0  
+b2 = 0.5
+bG2 = -1
+R2 = 0.1
+
+fig, axs = plt.subplots(2,2,figsize=(9,7))
+cmap = plt.get_cmap('jet')
+axs[0,0].set_title('$b_1$')
+param_array = np.linspace(-20,20,10)
+norm = plt.Normalize(vmin=param_array.min(), vmax=param_array.max())
+sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+sm.set_array([])
+for i0 in param_array:
+    pmod = eft.model_P_tracer(k_mod, i0, b2, bG2, R2, redshift)
+    axs[0,0].loglog(k_mod, pmod*k_mod**3/2/np.pi**2, color=cmap(norm(i0)))
+cbar = fig.colorbar(sm, ax=axs[0,0], orientation='vertical', pad=0.01)
+axs[0,1].set_title('$b_2$')
+param_array = np.linspace(-5,5,10)
+norm = plt.Normalize(vmin=param_array.min(), vmax=param_array.max())
+sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+sm.set_array([])
+for i0 in param_array:
+    pmod = eft.model_P_tracer(k_mod, b1, i0, bG2, R2, redshift)
+    axs[0,1].loglog(k_mod, pmod*k_mod**3/2/np.pi**2, color=cmap(norm(i0)))
+cbar = fig.colorbar(sm, ax=axs[0,1], orientation='vertical', pad=0.01)
+axs[1,0].set_title('$b_{G_2}$')
+param_array = np.linspace(-20,20,10)
+norm = plt.Normalize(vmin=param_array.min(), vmax=param_array.max())
+sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+sm.set_array([])
+for i0 in param_array:
+    pmod = eft.model_P_tracer(k_mod, b1, b2, i0, R2, redshift)
+    axs[1,0].loglog(k_mod, pmod*k_mod**3/2/np.pi**2, color=cmap(norm(i0)))
+cbar = fig.colorbar(sm, ax=axs[1,0], orientation='vertical', pad=0.01)
+axs[1,1].set_title('$R2$')
+param_array = np.linspace(-20,20,10)
+norm = plt.Normalize(vmin=param_array.min(), vmax=param_array.max())
+sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+sm.set_array([])
+for i0 in param_array:
+    pmod = eft.model_P_tracer(k_mod, b1, b2, bG2, i0, redshift)
+    axs[1,1].loglog(k_mod, pmod*k_mod**3/2/np.pi**2, color=cmap(norm(i0)))
+cbar = fig.colorbar(sm, ax=axs[1,1], orientation='vertical', pad=0.01)
 for ax in axs.flatten():
     ax.set_xlabel(f'$k [h/\mathrm{{Mpc}}]$')
     ax.set_ylabel(f'$P(k)$')

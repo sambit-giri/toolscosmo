@@ -1951,7 +1951,7 @@ class EFTformalism_Anastasiou2024:
       print('...done contracting matrices')
     return F22vals, F13vals, Idelta2vals, IG2vals, FG2vals, Idelta2delta2vals, IG2G2vals, Idelta2G2vals, Plinvals
   
-  def model_P_tracer(self, k_sample, b1, b2, bG2, bGamma3, R2, Pshot, cs2, redshift, plin=None):
+  def _model_P_tracer(self, k_sample, b1, b2, bG2, bGamma3, R2, Pshot, cs2, redshift, plin=None):
     par = self.param
 
     if plin is None:
@@ -2006,6 +2006,9 @@ class EFTformalism_Anastasiou2024:
     result = b1**2 * Term1 + b1*b2 * Term2 + 2*b1*bG2*Term3 + b1*(2*bG2* + (4/5)*bGamma3) * Term4 + (1/4)*b2**2 * Term5 + bG2**2 * Term6 + b2*bG2 * Term7 + counterterm + Pstoch
 
     return np.array(result).astype(np.float64)#, Term1, P1loop, plin
+  
+  def model_P_tracer(self, k_sample, b1, b2, bG2, bGamma3, R2, Pshot, cs2, redshift, plin=None):
+    return self._model_P_tracer(k_sample, b1, b2, bG2, bGamma3, R2, Pshot, cs2, redshift, plin=plin)
 
 class EFTformalism_Qin2022(EFTformalism_Anastasiou2024):
   def __init__(self, param, CHOP_TOL=1e-30, k_min=0.02, k_max=0.4,
@@ -2015,12 +2018,15 @@ class EFTformalism_Qin2022(EFTformalism_Anastasiou2024):
                ):
     super().__init__(param, CHOP_TOL=CHOP_TOL, k_min=k_min, k_max=k_max,
                nBW=nBW,  # Number of Breit-Wigner terms
-               verbose=True,
+               verbose=verbose,
                save_folder=save_folder,
                ) 
     
-  def model_P_tracer(self, k_sample, b1, b2, bG2, bGamma3, R2, Pshot, cs2, redshift, plin=None):
-    return None
+  def model_P_tracer(self, k_sample, b1, b2, bG2, R2, redshift, plin=None):
+    bGamma3 = 0.0
+    Pshot = 0.0
+    cs2 = 0.0
+    return self._model_P_tracer(k_sample, b1, b2, bG2, bGamma3, R2, Pshot, cs2, redshift, plin=plin)
 
 if __name__ == "__main__":
   import toolscosmo
