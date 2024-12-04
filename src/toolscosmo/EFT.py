@@ -2007,6 +2007,20 @@ class EFTformalism_Anastasiou2024:
 
     return np.array(result).astype(np.float64)#, Term1, P1loop, plin
 
+class EFTformalism_Qin2022(EFTformalism_Anastasiou2024):
+  def __init__(self, param, CHOP_TOL=1e-30, k_min=0.02, k_max=0.4,
+               nBW=12,  # Number of Breit-Wigner terms
+               verbose=True,
+               save_folder='IntegralMatrices',
+               ):
+    super().__init__(param, CHOP_TOL=CHOP_TOL, k_min=k_min, k_max=k_max,
+               nBW=nBW,  # Number of Breit-Wigner terms
+               verbose=True,
+               save_folder=save_folder,
+               ) 
+    
+  def model_P_tracer(self, k_sample, b1, b2, bG2, bGamma3, R2, Pshot, cs2, redshift, plin=None):
+    return None
 
 if __name__ == "__main__":
   import toolscosmo
