@@ -6,6 +6,7 @@ pytest
 scikit-learn==1.2.0
 tqdm
 pandas
+tools21cm
 baccoemu
 camb
 corecon
