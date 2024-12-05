@@ -1916,7 +1916,7 @@ class EFTformalism_Anastasiou2024:
 
     if self.verbose:
       print('Start contracting matrices...')
-    for i in tqdm(range(len(k_sample))):
+    for i in tqdm(range(len(k_sample)), disable=not self.verbose):
       resultF22 = 0
       resultF13 = 0
       resultdelta2 = 0 
