@@ -4,10 +4,17 @@ channels:
   - conda-forge
 dependencies:
   - python=3.8
+  - pip
+  - cython
   - numpy
   - scipy
   - matplotlib
+  - astropy
   - pytest
-  - pip
+  - scikit-learn==1.2.0
+  - tqdm
+  - joblib
+  - pandas
   - pip:
-    - -r requirements.txt  # This ensures any additional pip packages are installed
+      - tools21cm
+      - -r requirements.txt  # This ensures any additional pip packages are installed
