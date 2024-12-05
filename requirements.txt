@@ -1,3 +1,4 @@
+cython
 numpy
 scipy
 matplotlib
@@ -5,6 +6,7 @@ astropy
 pytest
 scikit-learn==1.2.0
 tqdm
+joblib
 pandas
 tools21cm
 baccoemu
