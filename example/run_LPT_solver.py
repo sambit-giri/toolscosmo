@@ -3,18 +3,19 @@ import matplotlib.pyplot as plt
 import toolscosmo as tcm
 import tools21cm as t2c
 
-grid_size = 128
-res_factor = 2
+grid_size = 512 #128
+res_factor = 4 #2
 box_size  = 500 #Mpc/h 
 param = tcm.par()
 param.file.ps = tcm.get_Plin(param)
+iSeed = 314159265
 
 z1 = 149.
 z2 = 9.
 
-delta_grf, kx, ky, kz = tcm.generate_gaussian_random_field(grid_size*res_factor, box_size, param=param)
-particle_pos_z1 = tcm.generate_initial_conditions(grid_size*res_factor, box_size, z1, param, LPT=2, delta_grf=delta_grf, filter_aliasing=1)['positions']
-particle_pos_z2 = tcm.generate_initial_conditions(grid_size*res_factor, box_size, z2, param, LPT=2, delta_grf=delta_grf, filter_aliasing=1)['positions']
+delta_grf, kx, ky, kz = tcm.generate_gaussian_random_field(grid_size*res_factor, box_size, param=param, random_seed=iSeed)
+particle_pos_z1 = tcm.generate_initial_conditions(grid_size*res_factor, box_size, z1, param, LPT=1, delta_grf=delta_grf, filter_aliasing=1)['positions']
+particle_pos_z2 = tcm.generate_initial_conditions(grid_size*res_factor, box_size, z2, param, LPT=1, delta_grf=delta_grf, filter_aliasing=1)['positions']
 delta_z1 = tcm.particles_on_grid(particle_pos_z1, grid_size, box_size)
 delta_z2 = tcm.particles_on_grid(particle_pos_z2, grid_size, box_size)
 

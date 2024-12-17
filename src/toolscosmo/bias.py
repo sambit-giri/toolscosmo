@@ -31,10 +31,10 @@ def halo_bias(param):
         mbin = 4*np.pi*Om*rhoc*(cc*rbin)**3/3
 
 
-    if (param.cosmo.zbin=='lin'):
-        zz = np.linspace(param.cosmo.zmin,param.cosmo.zmax,param.cosmo.Nz)
-    elif (param.cosmo.zbin=='log'):
-        zz = np.logspace(np.log(param.cosmo.zmin),np.log(param.cosmo.zmax),param.cosmo.Nz,base=np.e)
+    if (param.code.zbin=='lin'):
+        zz = np.linspace(param.code.zmin,param.code.zmax,param.code.Nz)
+    elif (param.code.zbin=='log'):
+        zz = np.logspace(np.log(param.code.zmin),np.log(param.code.zmax),param.code.Nz,base=np.e)
     else:
         print("ERROR: neither lin nor log for binning. Abort")
         exit()
