@@ -66,6 +66,18 @@ def cosmo_par():
         }
     return Bunch(par)
 
+def dm_par(name):
+    if name.lower()=='wdm':
+        par = {
+            "name": name,
+            "m_wdm": 100.0, #keV
+            }
+    else:
+        par = {
+            "name": 'LCDM',
+            }
+    return Bunch(par) 
+
 def de_par(name):
     if name.lower()=='lcdm':
         par = {
@@ -199,7 +211,7 @@ def io_files():
     return Bunch(par)
 
 
-def par(DE='LCDM'):
+def par(DM='LCDM', DE='LCDM'):
     par = Bunch({
         "cosmo": cosmo_par(),
         "file": io_files(),
@@ -213,5 +225,6 @@ def par(DE='LCDM'):
         "lf": lf_par(),
         "MA": mar_par(),
         "DE": de_par(DE),
+        "DM": dm_par(DM),
         })
     return par

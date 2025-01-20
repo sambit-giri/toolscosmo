@@ -15,11 +15,11 @@ param.cosmo.Or = 0.0
 param.cosmo.Ob = 0.045
 param.cosmo.h0 = 0.73
 param.cosmo.ns = 1.0
-param.cosmo.As = None #2.089e-09
+param.cosmo.As = 2.089e-09 #None #
 param.cosmo.s8 = 0.9
 param.cosmo.solver = 'toolscosmo' #'astropy'
 param.mf.dc = 1.686
-param.file.ps = 'CLASS'
+param.file.ps = 'CLASSemu' #'CLASS' #'CAMB' #
 param.file.ps = toolscosmo.calc_Plin(param)
 
 fig, ax = plt.subplots(1,1,figsize=(8,6))
@@ -128,6 +128,7 @@ plt.show()
 Mtree_sim = merger_trees.ParkinsonColeHelly2008(param)
 m_tree = Mtree_sim.run(1e12, 0, 3, 1e4, max_tree_length=5000000)
 
+exit()
 
 cosmo = toolscosmo.cython_ParkinsonColeHelly2008.CosmoParams(
             Om = param.cosmo.Om, 

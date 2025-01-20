@@ -10,6 +10,14 @@ import camb
 # CAMB verbosity level
 camb.set_feedback_level(0)
 
+def wdm_transfer_function(k, wdm_mass, h0=0.67, Owdm=0.25):
+    '''
+    This is a simple approximation for the WDM transfer function from 1112.0330
+    '''
+    mu = 1.12
+    alpha = 0.049 * (wdm_mass / 1.0)**(-1.11) * (Owdm/0.25)**0.11 * (h0/0.7)**(1.22) #Mpc/h
+    return (1 + (alpha * k)**(2*mu))**(-5/mu)
+
 def run_camb(param, **info):
     tstart = time()
     if param.code.verbose: print('Using CAMB to estimate linear power spectrum.')
@@ -53,7 +61,9 @@ def run_camb(param, **info):
                 num_massive_neutrinos=1,
                 mnu=mnu,
                 )
-    if param.DE.name.lower() in ['lcdm']:
+    
+    # Dark energy
+    if param.DE.name.lower() in ['lcdm', 'lambda']:
         pass
     elif param.DE.name.lower() in ['cpl', 'w0wa']:
         w0 = param.DE.w0 
@@ -75,6 +85,16 @@ def run_camb(param, **info):
     else:
         print(f'{param.DE.name} is an unknown dark energy model for CAMB.')
     p.set_initial_power(camb.InitialPowerLaw(As=As, ns=ns))
+
+    # Dark matter
+    if param.DM.name.lower() in ['lcdm']:
+        Tk_wdm = lambda kh: 1.0
+    elif param.DM.name.lower() in ['wdm', 'warm_dark_matter']:
+        wdm_mass = param.DM.m_wdm
+        Tk_wdm = lambda kh: wdm_transfer_function(kh, wdm_mass)
+    else:
+        print(f'{param.DM.name} is an unknown dark matter model for CAMB.')
+
     p.set_matter_power(redshifts=zs, kmax=k_max, nonlinear=True)
 
     # Compute CAMB results
@@ -93,11 +113,15 @@ def run_camb(param, **info):
     if param.code.verbose: 
         print(f'sigma_8={r.get_sigma8_0():.3f}')
         print('CAMB runtime: {:.2f} s'.format(time()-tstart))
-    out = {'k': k_h.squeeze(), 'P': pk_h.squeeze(), 'results': r}
-    ## get dictionary of CAMB power spectra
-    powers =r.get_cmb_power_spectra(p, CMB_unit='muK')
-    # for name in powers: print(name)
-    out['CMB_Cls'] = powers
+    out = {
+        'k': k_h.squeeze(), 
+        'P': pk_h.squeeze()*Tk_wdm(k_h), 
+        'results': r,
+        }
+    # ## get dictionary of CAMB power spectra
+    # powers =r.get_cmb_power_spectra(p, CMB_unit='muK')
+    # # for name in powers: print(name)
+    # out['CMB_Cls'] = powers
     return out
 
 class ClassModule:

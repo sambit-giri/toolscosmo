@@ -5,11 +5,17 @@ FUNCTIONS RELATED TO COSMOLOGY
 """
 import numpy as np
 from astropy import cosmology, units
-from .scipy_func import *
 
-from .constants import rhoc0,c
-from .run_BoltzmannSolver import *
-from .emulate_BoltmannSolver import *
+try:
+    from .scipy_func import *
+    from .constants import rhoc0,c
+    from .run_BoltzmannSolver import *
+    from .emulate_BoltmannSolver import *
+except:
+    from scipy_func import *
+    from constants import rhoc0,c
+    from run_BoltzmannSolver import *
+    from emulate_BoltmannSolver import *
 
 def prepare_cosmo_solver(param):
     if param.code.verbose: print('Preparing cosmological solvers...')
@@ -546,7 +552,7 @@ class astropy_cosmo:
             else: cosmo = cosmology.w0waCDM(h0*100, Om, Ode, w0=w0, wa=wa)
         elif param.DE.name.lower()=='growing_neutrino_mass':
             cosmo = None
-        elif param.DE.name.lower()=='lcdm':
+        elif param.DE.name.lower() in ['lcdm','lambda']:
             if Ode.lower()=='flat': cosmo = cosmology.FlatLambdaCDM(h0*100, Om)
             else: cosmo = cosmology.LambdaCDM(h0*100, Om, Ode)
         else:

@@ -13,6 +13,7 @@ baccoemu
 camb
 corecon
 # git+https://github.com/sambit-giri/emulator.git
+numba
 
 # Uncomment the following line to install PyTorch with CUDA 11.8
 # torch==2.0.1+cu118 torchvision==0.15.2+cu118 torchaudio==2.0.2+cu118 -f https://download.pytorch.org/whl/torch_stable.html

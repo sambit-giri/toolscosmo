@@ -30,6 +30,8 @@ For detailed documentation and usage instructions, see the [contents page](https
 
 - **Dark matter merger trees:** Analytical merger trees using the extended Press-Schechter formalism.
 
+- **Initial Condition Generator:** Lagrangian Perturbation Theory (LPT) based initial condition generator for cosmological numerical simulation frameworks.
+
 
 ## INSTALLATION
 
@@ -53,7 +55,7 @@ The dependencies should be installed automatically during the installation proce
 
 ### Tests
 
-For testing, one can use [pytest](https://docs.pytest.org/en/stable/). To run all the test script, run the either of the following::
+For testing, one can use [pytest](https://docs.pytest.org/en/stable/). To run all the test script, run the following::
 
     python -m pytest tests
     
