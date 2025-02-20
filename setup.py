@@ -34,7 +34,7 @@ extensions = [
 
 setup(
     name='toolscosmo',
-    version='0.1.8',
+    version='0.1.9',
     author='Sambit Giri',
     author_email='sambit.giri@su.se',
     packages=find_packages("src"),
