@@ -11,6 +11,7 @@ pandas
 tools21cm
 baccoemu
 camb
+# classy #Install classy manually by running "pip install classy"
 corecon
 # git+https://github.com/sambit-giri/emulator.git
 numba
