@@ -6,16 +6,14 @@ FUNCTIONS RELATED TO COSMOLOGY
 import numpy as np
 from astropy import cosmology, units
 
-try:
-    from .scipy_func import *
-    from .constants import rhoc0,c
-    from .run_BoltzmannSolver import *
-    from .emulate_BoltmannSolver import *
-except:
-    from scipy_func import *
-    from constants import rhoc0,c
-    from run_BoltzmannSolver import *
-    from emulate_BoltmannSolver import *
+from .scipy_func import *
+from .constants import rhoc0,c
+from .run_BoltzmannSolver import *
+from .emulate_BoltmannSolver import *
+# from scipy_func import *
+# from constants import rhoc0,c
+# from run_BoltzmannSolver import *
+# from emulate_BoltmannSolver import *
 
 def prepare_cosmo_solver(param):
     if param.code.verbose: print('Preparing cosmological solvers...')

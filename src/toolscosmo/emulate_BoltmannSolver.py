@@ -4,10 +4,8 @@ from time import time
 import warnings
 import os, pickle, pkg_resources
 
-try:
-    from .neural_networks import NNRegressor
-except:
-    from neural_networks import NNRegressor
+from .neural_networks import NNRegressor
+# from neural_networks import NNRegressor
 
 def emulate_class(param, **info):
     tstart = time()
