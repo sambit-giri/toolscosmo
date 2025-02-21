@@ -2,7 +2,8 @@ import numpy as np
 from scipy.interpolate import splrep,splev
 from time import time 
 import warnings
-import os, pickle, pkg_resources
+import os, pickle
+import importlib.resources #pkg_resources
 
 from .neural_networks import NNRegressor
 # from neural_networks import NNRegressor
@@ -33,7 +34,9 @@ def emulate_class(param, **info):
     if param.DE.name.lower() in ['lcdm']:
         w0 = -1
         wa = 0
-        path_to_class_cpl_emu = pkg_resources.resource_filename('toolscosmo', 'input_data/cpl_class_emulator.pkl')
+        filename = 'input_data/cpl_class_emulator.pkl'
+        # path_to_class_cpl_emu = pkg_resources.resource_filename('toolscosmo', filename)
+        path_to_class_cpl_emu = importlib.resources.path('toolscosmo', filename)
         emu = NNRegressor(layers=[7, 128, 256, 128, 32])
         emu.load_model(path_to_class_cpl_emu)
         pca = emu.extra_data['pca_y']
@@ -44,7 +47,9 @@ def emulate_class(param, **info):
     elif param.DE.name.lower() in ['cpl', 'w0wa']:
         w0 = param.DE.w0 
         wa = param.DE.wa 
-        path_to_class_cpl_emu = pkg_resources.resource_filename('toolscosmo', 'input_data/cpl_class_emulator.pkl')
+        filename = 'input_data/cpl_class_emulator.pkl'
+        # path_to_class_cpl_emu = pkg_resources.resource_filename('toolscosmo', filename)
+        path_to_class_cpl_emu = importlib.resources.path('toolscosmo', filename)
         emu = NNRegressor(layers=[7, 128, 256, 128, 32])
         emu.load_model(path_to_class_cpl_emu)
         pca = emu.extra_data['pca_y']

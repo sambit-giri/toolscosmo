@@ -58,6 +58,7 @@ def cosmo_par():
         "ns"  : 0.963,
         "YHe" : 0.2425,
         "N_ur": 3.044,
+        "mnu" : 0.06,
 
         "tau_reio": 0.052,
         "Tcmb": 2.72,
