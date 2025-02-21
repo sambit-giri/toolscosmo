@@ -47,17 +47,17 @@ def cosmo_par():
     par = {
         "solver": 'astropy',       # solver/package for cosmological parameter. Options: 'astropy', 'camb', 'tools_cosmo'.
 
-        "Om" : 0.315,
-        "Ob" : 0.049,
-        "Or" : 5.4e-5,
-        "Ok" : 0.0,
-        "Ode": None,  # Flat universe is assumed if None or 'flat'.
-        "s8" : 0.83,  # This will not be used if As is not None.
-        "As" : 2.089e-9,
-        "h0" : 0.673,
-        "ns" : 0.963,
-        "YHe": 0.2425,
-        "mnu": 0.06,
+        "Om"  : 0.315,
+        "Ob"  : 0.049,
+        "Or"  : 5.4e-5,
+        "Ok"  : 0.0,
+        "Ode" : None,  # Flat universe is assumed if None or 'flat'.
+        "s8"  : 0.83,  # This will not be used if As is not None.
+        "As"  : 2.089e-9,
+        "h0"  : 0.673,
+        "ns"  : 0.963,
+        "YHe" : 0.2425,
+        "N_ur": 3.044,
 
         "tau_reio": 0.052,
         "Tcmb": 2.72,
@@ -67,10 +67,16 @@ def cosmo_par():
     return Bunch(par)
 
 def dm_par(name):
-    if name.lower()=='wdm':
+    if name.lower() in ['wdm', 'warm_dark_matter']:
         par = {
             "name": name,
-            "m_wdm": 100.0, #keV
+            "m_wdm": 1.0, #keV
+            }
+    elif name.lower() in ['cwdm', 'cold_warm_dark_matter', 'wcdm', 'warm_cold_dark_matter']:
+        par = {
+            "name": name,
+            "m_wdm": 1.0, #keV
+            "f_wdm": 0.5, #fraction
             }
     else:
         par = {

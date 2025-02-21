@@ -196,14 +196,13 @@ def run_class(param, **info):
     inputs_class = info.get('inputs_class', None)
     if param.code.verbose: print('Using CLASS to estimate linear power spectrum.')
     cosmo = {
-            'omega_cdm': (param.cosmo.Om-param.cosmo.Ob)*param.cosmo.h0**2, 
-            'omega_b': param.cosmo.Ob*param.cosmo.h0**2, 
+            'Omega_b': param.cosmo.Ob, 
             'h'  : param.cosmo.h0, 
             'n_s': param.cosmo.ns, 
             'tau_reio': param.cosmo.tau_reio,
             'YHe': param.cosmo.YHe,
-            #'N_ur': 3.044,
-            #'N_ncdm':1,
+            'N_ur': param.cosmo.N_ur,
+            #'N_ncdm': 1,
             #'m_ncdm': param.cosmo.mnu,
              }
     if param.cosmo.As is not None: cosmo['A_s'] = param.cosmo.As
@@ -217,6 +216,7 @@ def run_class(param, **info):
                         #'tol_perturbations_integration': info.get('tol_perturbations_integration', 1e-6),
                         }
 
+    # Dark Energy
     if param.DE.name.lower() in ['cpl', 'w0wa']:
         w0, wa = param.DE.w0 , param.DE.wa
         if param.code.verbose: print(f'{param.DE.name}: w0,wa={w0},{wa}')
@@ -225,6 +225,28 @@ def run_class(param, **info):
         inputs_class['wa_fld'] = wa
         inputs_class['cs2_fld'] = 1
         inputs_class['Omega_Lambda'] = 0.0
+    
+    # Dark matter
+    if param.DM.name.lower() in ['lcdm', 'cold_dark_matter']:
+        if param.code.verbose: print(f'{param.DM.name}')
+        inputs_class['Omega_cdm'] = (param.cosmo.Om-param.cosmo.Ob)
+    elif param.DM.name.lower() in ['wdm', 'warm_dark_matter']:
+        if param.code.verbose: print(f'{param.DM.name}: {param.DM.m_wdm} keV')
+        inputs_class['ncdm_fluid_approximation'] = 3
+        inputs_class['N_ncdm'] = 1
+        inputs_class['m_ncdm'] = M_sterile_nu(param)*1000 # eV 
+        inputs_class['Omega_ncdm'] = (param.cosmo.Om-param.cosmo.Ob)
+        inputs_class['Omega_cdm'] = 0.0
+    elif param.DM.name.lower() in ['cwdm', 'cold_warm_dark_matter', 'wcdm', 'warm_cold_dark_matter']:
+        if param.code.verbose: print(f'{param.DM.name}: {param.DM.m_wdm} keV')
+        assert 0<=param.DM.f_wdm<=1, f'The value for fraction of non-cold dark matter should be between 0 and 1, but the value provided is {param.DM.f_wdm}'
+        inputs_class['ncdm_fluid_approximation'] = 3
+        inputs_class['N_ncdm'] = 1
+        inputs_class['m_ncdm'] = M_sterile_nu(param)*1000 # eV 
+        inputs_class['Omega_ncdm'] = (param.cosmo.Om-param.cosmo.Ob)*param.DM.f_wdm
+        inputs_class['Omega_cdm'] = (param.cosmo.Om-param.cosmo.Ob)*(1-param.DM.f_wdm)
+    else:
+        print(f'{param.DM.name} is an unknown dark matter model for CLASS.')
 
     inputs_class.update(info)
     # print(inputs_class.keys())
@@ -234,57 +256,19 @@ def run_class(param, **info):
     class_.compute_Plin()
     return class_
 
-# def _class_run(k: float, omega_cdm: float, z: float = 4.66, z0: float = 0.0) -> float:
-#     '''
-#     Function the factor 1 + q(k,z).
+def M_sterile_nu(param):
+	"""
+	Sterile neutrino mass.
 
-#     Inputs
-#     ------
-#     k (float) - the wavenumber
-
-#     omega_cdm (float) - cold dark matter component, this is, omega_cdm h^2
-
-#     z (float) - the redshift at which the power spectrum is calculated (default : 4.66)
-
-#     z0 (float) - the reference redshift (default: 0.0)
-
-#     Returns
-#     -------
-#     ratio (float) - the factor 1 + q(k,z)
-#     '''
-
-#     cosmo = {'omega_cdm': omega_cdm, 'omega_b': par[1], 'ln10^{10}A_s': par[2], 'n_s': par[3], 'h': par[4]}
-
-#     # instantiate Class
-#     class_module = Class()
-
-#     # set cosmology
-#     class_module.set(cosmo)
-
-#     # set basic configurations for Class
-#     class_module.set(inputs_class)
-
-#     # compute the important quantities
-#     class_module.compute()
-
-#     # k is in Mpc^-1
-#     # calculate the non-linear matter power spectrum
-#     pk_non = class_module.pk(k * par[4], z)
-    
-#     # calculate the linear matter power spectrum
-#     pk_lin = class_module.pk_lin(k * par[4], z0)
-
-#     # get the factor A
-#     a_fact = class_module.scale_independent_growth_factor(z)**2
-
-#     # calculate ratio
-#     ratio = pk_non / (a_fact * pk_lin)
-
-#     # empty Class module - unnecessarily accumulates memory
-#     class_module.struct_cleanup()
-#     class_module.empty()
-
-#     return ratio
+	Parameters
+	----------
+	param: Bunch
+		Object containing parameter values. WDM mass in keV.
+	"""
+	Mwdm = param.DM.m_wdm
+	Owdm = (param.cosmo.Om-param.cosmo.Ob)*param.cosmo.h0**2
+	m_nu  = 4.43*Mwdm**(4./3)*(Owdm/0.1225)**(-1./3)
+	return m_nu 
 
 def run_bacco(param, **info):
     try:
