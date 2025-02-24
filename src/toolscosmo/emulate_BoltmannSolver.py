@@ -3,7 +3,7 @@ from scipy.interpolate import splrep,splev
 from time import time 
 import warnings
 import os, pickle
-import importlib.resources #pkg_resources
+import importlib #pkg_resources
 
 from .neural_networks import NNRegressor
 # from neural_networks import NNRegressor
@@ -36,7 +36,7 @@ def emulate_class(param, **info):
         wa = 0
         filename = 'input_data/cpl_class_emulator.pkl'
         # path_to_class_cpl_emu = pkg_resources.resource_filename('toolscosmo', filename)
-        path_to_class_cpl_emu = importlib.resources.path('toolscosmo', filename)
+        path_to_class_cpl_emu = importlib.resources.files('toolscosmo').joinpath(filename)
         emu = NNRegressor(layers=[7, 128, 256, 128, 32])
         emu.load_model(path_to_class_cpl_emu)
         pca = emu.extra_data['pca_y']
@@ -49,7 +49,7 @@ def emulate_class(param, **info):
         wa = param.DE.wa 
         filename = 'input_data/cpl_class_emulator.pkl'
         # path_to_class_cpl_emu = pkg_resources.resource_filename('toolscosmo', filename)
-        path_to_class_cpl_emu = importlib.resources.path('toolscosmo', filename)
+        path_to_class_cpl_emu = importlib.resources.files('toolscosmo').joinpath(filename)
         emu = NNRegressor(layers=[7, 128, 256, 128, 32])
         emu.load_model(path_to_class_cpl_emu)
         pca = emu.extra_data['pca_y']

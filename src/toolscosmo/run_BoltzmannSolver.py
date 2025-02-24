@@ -28,6 +28,7 @@ def run_camb(param, **info):
     omb = param.cosmo.Ob 
     omk = 0.0 #param.cosmo.Ok # Assuming flat cosmology
     mnu = param.cosmo.mnu
+    N_ur= param.cosmo.N_ur
     ns = param.cosmo.ns 
     As = param.cosmo.As 
     if As is None and param.cosmo.s8:
@@ -59,6 +60,7 @@ def run_camb(param, **info):
                 omch2=omc*h**2,
                 omk=omk,
                 num_massive_neutrinos=1,
+                # massless_neutrinos=N_ur,
                 mnu=mnu,
                 )
     
