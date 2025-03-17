@@ -112,7 +112,7 @@ def generate_gaussian_random_field(grid_size, box_size, power_spectrum=None, par
         power_spectrum = get_Plin(param)
 
     np.random.seed(random_seed)
-    [kx, ky, kz], k = create_k_grid(grid_size, box_size)
+    [kx, ky, kz], k = create_k_grid_fft(grid_size, box_size)
 
     # Interpolating the power spectrum
     sqrtPgrid = np.sqrt(np.interp(k, power_spectrum['k'], power_spectrum['P']) / (box_size / grid_size)**3)
@@ -151,9 +151,10 @@ def create_gradient_kernel_rfft3(res, boxsize, oversampling_factor=1):
     grad_kernel[1, :, effective_res//2] = 0.  # Nyquist in y-direction
     grad_kernel[2, :, :, -1] = 0.  # Nyquist in z-direction
 
-    grad_kernel[np.abs(grad_kernel)==0] = np.abs(grad_kernel)[np.abs(grad_kernel)>0].min() # Prevent division by zero
+    # grad_kernel[np.abs(grad_kernel)==0] = np.abs(grad_kernel)[np.abs(grad_kernel)>0].min() # Prevent division by zero
+    k_squared = kmesh[0]**2+kmesh[1]**2+kmesh[2]**2
 
-    return grad_kernel
+    return grad_kernel, k_squared
 
 def create_gradient_kernel_fft3(res, boxsize):
     """
@@ -171,9 +172,10 @@ def create_gradient_kernel_fft3(res, boxsize):
     grad_kernel[1, :, res//2, :] = 0.  # Nyquist in y-direction
     grad_kernel[2, :, :, res//2] = 0.  # Nyquist in z-direction
 
-    grad_kernel[np.abs(grad_kernel)==0] = np.abs(grad_kernel)[np.abs(grad_kernel)>0].min() # Prevent division by zero
+    # grad_kernel[np.abs(grad_kernel)==0] = np.abs(grad_kernel)[np.abs(grad_kernel)>0].min() # Prevent division by zero
+    k_squared = kmesh[0]**2+kmesh[1]**2+kmesh[2]**2
 
-    return grad_kernel
+    return grad_kernel, k_squared
 
 
 def first_order_lpt(delta_k, D1, grad_kernel, k_squared, oversampling_factor):
@@ -383,7 +385,7 @@ def generate_initial_condition_positions(grid_size, box_size, z, param, LPT=2, p
     oversampling_factor = anti_aliasing_kwargs.get('oversampling_factor') if anti_aliasing.lower() in ['padding', 'zero-padding', 'zeropadding', 'zero_padding', 'oversampling'] else 1
     grid_size_eff = grid_size * oversampling_factor
 
-    grad_kernel = create_gradient_kernel_rfft3(grid_size_eff, box_size)
+    grad_kernel, k_squared = create_gradient_kernel_rfft3(grid_size_eff, box_size)
     # [kx, ky, kz], kmag = create_k_grid_rfft(grid_size, box_size)
 
     delta_k = rfftn(delta_lin, s=(grid_size_eff, grid_size_eff, grid_size_eff), norm='ortho')
@@ -392,7 +394,7 @@ def generate_initial_condition_positions(grid_size, box_size, z, param, LPT=2, p
         print(f'Displacing particles using {LPT}LPT...')
         tstart = time()
 
-    k_squared = np.sum(np.abs(grad_kernel)**2, axis=0) #kmag**2 # # k^2 = kx^2 + ky^2 + kz^2
+    # k_squared = np.sum(np.abs(grad_kernel)**2, axis=0) #kmag**2 # # k^2 = kx^2 + ky^2 + kz^2
     k_squared[k_squared==0] = k_squared[k_squared>0].min()  # Prevent division by zero
     kmax = k_Nyquist(grid_size_eff, box_size)  # Nyquist frequency
 
