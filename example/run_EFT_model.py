@@ -8,6 +8,11 @@ from scipy.interpolate import interp1d
 
 import toolscosmo
 
+
+
+
+exit()
+
 par = toolscosmo.par()
 plin = toolscosmo.get_Plin(par)
 par.file.ps = plin

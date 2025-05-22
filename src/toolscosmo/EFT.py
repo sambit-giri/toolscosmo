@@ -10,6 +10,7 @@ import os, sys
 from tqdm import tqdm
 
 from .cosmo import growth_factor, get_Plin
+from .generate_ic import *
 import tools21cm as t2c
 
 def D(z, par):
@@ -41,6 +42,235 @@ def linear_bias_21(z, par):
   t2c.set_sigma_8(par.cosmo.s8)
   b21_lin = t2c.mean_dt(z)
   return b21_lin
+
+def compute_EPT_delta(param, grid_size, box_size, random_seed=42, 
+                      order=3, MAS='CIC', anti_aliasing=True, 
+                      deconvolve=True, cs=1.0, verbose=True):
+    """
+    Compute the EFT-of-LSS density field with customizable MAS, anti-aliasing, deconvolution, and counterterms.
+
+    Parameters:
+    -----------
+    param : dict
+        Cosmological parameters (e.g., {'Omega_m': 0.3, 'h': 0.7}).
+    grid_size : int
+        Number of grid points per dimension.
+    box_size : float
+        Physical box size (Mpc/h).
+    random_seed : int, optional
+        Seed for Gaussian random field generation. Default: 42.
+    order : int, optional
+        Maximum LPT order (1, 2, or 3). Default: 3.
+    MAS : str, optional
+        Mass assignment scheme: 'NGP', 'CIC' (default), 'TSC', or 'PCS'.
+    anti_aliasing : bool, optional
+        Apply anti-aliasing filter. Default: True.
+    deconvolve : bool, optional
+        Deconvolve MAS window function. Default: True.
+    cs : float, optional
+        EFT sound speed coefficient (counterterm amplitude). Default: 1.0.
+    verbose : bool, optional
+        Print progress messages. Default: True.
+
+    Returns:
+    --------
+    delta_EPT : np.ndarray
+        EFT density field (delta = rho/mean_rho - 1).
+    """
+    # --- Step 1: Generate initial Gaussian field ---
+    if verbose: print("Generating Gaussian random field...")
+    gen_field = generate_gaussian_random_field(
+        grid_size, box_size, param=param, random_seed=random_seed, verbose=verbose
+    )
+    delta_k = fftn(gen_field['delta_lin'])  # Linear delta in Fourier space
+
+    # --- Step 2: Compute LPT displacements ---
+    if verbose: print("Computing LPT displacements...")
+    grad_kernel, k_squared = create_gradient_kernel_rfft3(grid_size, box_size)
+    a = 1.0  # Scale factor (a = 1 for z = 0)
+
+    # 1LPT (Zel'dovich)
+    D1 = D1_growth_factor(a, param)
+    disp_x1, disp_y1, disp_z1 = first_order_lpt(delta_k, D1, grad_kernel, k_squared, 1)
+
+    # 2LPT
+    if order >= 2:
+        D2 = D2_growth_factor(a, param)
+        disp_x2, disp_y2, disp_z2 = second_order_lpt(delta_k, D2, grad_kernel, k_squared, 1)
+
+    # 3LPT
+    if order >= 3:
+        D3 = D3_growth_factor(a, param)
+        disp_x3, disp_y3, disp_z3 = third_order_lpt(delta_k, D3, grad_kernel, k_squared, 1)
+
+    # --- Step 3: Move particles ---
+    if verbose: print("Computing total displacement...")
+    pos = np.stack(np.meshgrid(
+        np.arange(grid_size), 
+        np.arange(grid_size), 
+        np.arange(grid_size), 
+        indexing='ij'
+    ), axis=-1).astype(np.float32) * (box_size / grid_size)
+
+    # Sum displacements
+    disp_tot = np.zeros_like(pos)
+    disp_tot[..., 0] += disp_x1
+    disp_tot[..., 1] += disp_y1
+    disp_tot[..., 2] += disp_z1
+    if order >= 2:
+        disp_tot[..., 0] += disp_x2
+        disp_tot[..., 1] += disp_y2
+        disp_tot[..., 2] += disp_z2
+    if order >= 3:
+        disp_tot[..., 0] += disp_x3
+        disp_tot[..., 1] += disp_y3
+        disp_tot[..., 2] += disp_z3
+
+    pos += disp_tot
+    pos %= box_size  # Enforce periodic boundary
+
+    # --- Step 4: Compute density field ---
+    if verbose: print("Computing density field...")
+    delta_EPT = particles_on_grid(
+        pos.reshape(-1, 3), grid_size, box_size, 
+        MAS=MAS, 
+        anti_aliasing=anti_aliasing, 
+        deconvolve=deconvolve, 
+        verbose=verbose
+    )
+
+    # --- Step 5: Add EFT counterterms ---
+    if cs != 0:  # Skip if cs=0
+        if verbose: print(f"Adding EFT counterterms (cs={cs})...")
+        kx, ky, kz = np.meshgrid(
+            2*np.pi * np.fft.fftfreq(grid_size, d=box_size/grid_size),
+            2*np.pi * np.fft.fftfreq(grid_size, d=box_size/grid_size),
+            2*np.pi * np.fft.rfftfreq(grid_size, d=box_size/grid_size),
+            indexing='ij'
+        )
+        k2 = kx**2 + ky**2 + kz**2
+        alpha = -cs * k2 / (1 + k2)  # Counterterm kernel
+        delta_k = fftn(delta_EPT)
+        delta_k *= (1 + alpha)
+        delta_EPT = ifftn(delta_k).real
+
+    return delta_EPT
+
+def compute_21cm_EFT_tracer(param, grid_size, box_size, z, 
+                           MAS='CIC', anti_aliasing=True, deconvolve=True,
+                           order_lpt=3, cs=1.0, b1=1.5, b2=0.5, bs=0.1, 
+                           beta=0.5, sigma_v=3.0, random_seed=42, verbose=True):
+    """
+    Compute the 21-cm brightness temperature contrast using EFT-based tracer model.
+
+    Parameters:
+    -----------
+    param : dict
+        Cosmological parameters (e.g., {'Omega_m': 0.3, 'h': 0.7}).
+    grid_size : int
+        Grid resolution.
+    box_size : float
+        Box size (Mpc/h).
+    z : float
+        Redshift.
+    MAS : str, optional
+        Mass assignment scheme ('NGP', 'CIC', 'TSC', 'PCS'). Default: 'CIC'.
+    anti_aliasing : bool, optional
+        Apply anti-aliasing filter. Default: True.
+    deconvolve : bool, optional
+        Deconvolve MAS window. Default: True.
+    order_lpt : int, optional
+        LPT order (1, 2, or 3). Default: 3.
+    cs : float, optional
+        EFT sound speed coefficient. Default: 1.0.
+    b1, b2, bs : float, optional
+        Linear, quadratic, and shear biases for 21-cm. Default: 1.5, 0.5, 0.1.
+    beta : float, optional
+        RSD parameter (beta = f/b1, where f is growth rate). Default: 0.5.
+    sigma_v : float, optional
+        Velocity dispersion for Fingers-of-God damping (Mpc/h). Default: 3.0.
+    random_seed : int, optional
+        Random seed for initial conditions. Default: 42.
+    verbose : bool, optional
+        Print progress. Default: True.
+
+    Returns:
+    --------
+    delta_Tb : np.ndarray
+        21-cm brightness temperature contrast (delta_Tb/Tb_mean).
+    """
+    # --- Step 1: Generate LPT density field ---
+    delta_EPT = compute_EPT_delta(
+        param=param, grid_size=grid_size, box_size=box_size,
+        random_seed=random_seed, order=order_lpt, MAS=MAS,
+        anti_aliasing=anti_aliasing, deconvolve=deconvolve, cs=cs, verbose=verbose
+    )
+
+    # --- Step 2: Compute bias expansion terms ---
+    if verbose: print("Computing bias terms...")
+    # First-order term (linear bias)
+    delta_1 = delta_EPT
+
+    # Second-order terms (b2 and bs)
+    delta_2 = delta_1**2 - np.mean(delta_1**2)
+    s_ij = compute_tidal_field(delta_1, box_size)  # Tidal field (see helper below)
+    s2 = np.sum(s_ij**2, axis=0) - np.mean(np.sum(s_ij**2, axis=0))
+
+    # Combine bias terms
+    delta_bias = b1 * delta_1 + 0.5 * b2 * delta_2 + bs * s2
+
+    # --- Step 3: Add redshift-space distortions (RSD) ---
+    if verbose: print("Adding RSD...")
+    # Compute velocity field (from linear theory)
+    vx, vy, vz = compute_velocity_field(delta_1, box_size, param, z)
+
+    # Apply Kaiser effect (large-scale RSD)
+    if beta != 0:
+        kx, ky, kz = np.meshgrid(
+            2*np.pi * fftfreq(grid_size, d=box_size/grid_size),
+            2*np.pi * fftfreq(grid_size, d=box_size/grid_size),
+            2*np.pi * rfftfreq(grid_size, d=box_size/grid_size),
+            indexing='ij'
+        )
+        k2 = kx**2 + ky**2 + kz**2
+        k2[0, 0, 0] = 1.0  # Avoid division by zero
+        delta_k = fftn(delta_bias)
+        delta_k *= (1 + beta * kz**2 / k2)  # Kaiser formula
+        delta_bias = ifftn(delta_k).real
+
+    # Apply Fingers-of-God damping (small-scale RSD)
+    if sigma_v > 0:
+        kz_grid = 2*np.pi * rfftfreq(grid_size, d=box_size/grid_size)
+        kz_mesh = np.zeros((grid_size, grid_size, grid_size//2 + 1))
+        kz_mesh[:] = kz_grid
+        damping = np.exp(-0.5 * (sigma_v * kz_mesh)**2)
+        delta_k = fftn(delta_bias) * damping
+        delta_bias = ifftn(delta_k).real
+
+    # --- Step 4: 21-cm specific effects ---
+    # (Placeholder for X-ray heating, Ly-alpha coupling, etc.)
+    delta_Tb = delta_bias  # Simplified for illustration
+
+    return delta_Tb
+
+def compute_tidal_field(delta, box_size):
+    """Compute tidal tensor s_ij = (∂i∂j/∇^2 - δ_ij/3) delta."""
+    delta_k = fftn(delta)
+    kx, ky, kz = np.meshgrid(
+        2*np.pi * fftfreq(delta.shape[0], d=box_size/delta.shape[0]),
+        2*np.pi * fftfreq(delta.shape[1], d=box_size/delta.shape[1]),
+        2*np.pi * rfftfreq(delta.shape[2], d=box_size/delta.shape[2]),
+        indexing='ij'
+    )
+    k2 = kx**2 + ky**2 + kz**2
+    k2[0, 0, 0] = 1.0  # Avoid division by zero
+
+    s_ij = []
+    for ki in [kx, ky, kz]:
+        for kj in [kx, ky, kz]:
+            s_k = (ki * kj / k2 - (ki == kj)/3) * delta_k
+            s_ij.append(ifftn(s_k).real)
+    return np.array(s_ij).reshape(3, 3, *delta.shape)
 
 class EFTformalism_Anastasiou2024:
   '''

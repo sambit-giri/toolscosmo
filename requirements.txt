@@ -10,6 +10,7 @@ joblib
 pandas
 tools21cm
 baccoemu
+pyhmcode
 camb
 # classy #Install classy manually by running "pip install classy"
 corecon
