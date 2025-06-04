@@ -210,7 +210,7 @@ def lf_par():
 
 def io_files():
     par = {
-        "ps" : 'CLASSemu', # Plin. Option: file, CLASS, CLASSemu, CAMB, BACCO, 'CDM_Planck15_pk.dat'.
+        "ps" : 'CAMB', # Plin. Option: file, CLASS, CLASSemu, CAMB, BACCO, 'CDM_Planck15_pk.dat'.
         "varfct": 'var.dat',
         "tau": 'tabulated_tau.npz',
         "cmb": False,  # If True, the Boltzmann solver will provide Cls. 
