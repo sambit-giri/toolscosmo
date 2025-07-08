@@ -6,15 +6,12 @@ from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 
-try: import tensorflow as tf
-except: print('Install Tensorflow to use prob_nn.')
-
 try: 
     import torch
     from torch import nn 
     import torch.optim as optim
 except: 
-    print('Install PyTorch.')
+    print('Install PyTorch to use trained models, such as CLASSemu.')
 
 def moving_average(data, window_size):
     '''

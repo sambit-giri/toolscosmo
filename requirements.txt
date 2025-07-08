@@ -10,17 +10,16 @@ joblib
 pandas
 tools21cm
 baccoemu
-pyhmcode
+# pyhmcode
 camb
 # classy #Install classy manually by running "pip install classy"
-corecon
-# git+https://github.com/sambit-giri/emulator.git
+# corecon
 numba
 
 # Uncomment the following line to install PyTorch with CUDA 11.8
 # torch==2.0.1+cu118 torchvision==0.15.2+cu118 torchaudio==2.0.2+cu118 -f https://download.pytorch.org/whl/torch_stable.html
 
 # Uncomment the following line to install PyTorch for CPU-only
-torch 
-torchvision 
-torchaudio
+# torch 
+# torchvision 
+# torchaudio
