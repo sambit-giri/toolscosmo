@@ -241,16 +241,16 @@ class NNRegressor:
         return out 
     
 
-# SIREN layer definition
-class SirenLayer(nn.Module):
-    def __init__(self, in_features, out_features, w0=30.0, dropout_prob=0.5):
-        super(SirenLayer, self).__init__()
-        self.in_features = in_features
-        self.linear = nn.Linear(in_features, out_features)
-        self.dropout = nn.Dropout(dropout_prob)
-        self.w0 = w0
+# # SIREN layer definition
+# class SirenLayer(nn.Module):
+#     def __init__(self, in_features, out_features, w0=30.0, dropout_prob=0.5):
+#         super(SirenLayer, self).__init__()
+#         self.in_features = in_features
+#         self.linear = nn.Linear(in_features, out_features)
+#         self.dropout = nn.Dropout(dropout_prob)
+#         self.w0 = w0
 
-    def forward(self, x):
-        y = self.linear(x)
-        y = self.dropout(y)  # Apply dropout
-        return torch.sin(self.w0 * y)
+#     def forward(self, x):
+#         y = self.linear(x)
+#         y = self.dropout(y)  # Apply dropout
+#         return torch.sin(self.w0 * y)
