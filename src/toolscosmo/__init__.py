@@ -11,7 +11,7 @@ from .cosmo import *
 from .bias import *
 from .generate_ic import *
 from .EFT import *
-from .extreme_value_stats import *
+from . import extreme_value_stats
 # from .mass_accretion import *
 # from .source_model import *
 # from .constants import *
