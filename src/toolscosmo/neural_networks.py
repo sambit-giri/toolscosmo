@@ -10,8 +10,9 @@ try:
     import torch
     from torch import nn 
     import torch.optim as optim
+    torch_available = True
 except: 
-    print('Install PyTorch to use trained models, such as CLASSemu.')
+    torch_available = False
 
 def moving_average(data, window_size):
     '''
@@ -20,7 +21,6 @@ def moving_average(data, window_size):
     cumsum = np.cumsum(data)
     cumsum[window_size:] = cumsum[window_size:] - cumsum[:-window_size]
     return cumsum[window_size - 1:] / window_size
-
 
 def save_model(model, filename):
     pickle.dump(model, open(filename,'wb'))
@@ -55,6 +55,9 @@ class NNRegressor:
                  optimizer='Adam', loss_fn='MSE',
                  learning_rate=1e-4,
                  ):
+        if not torch_available:
+            raise ImportError("PyTorch is not installed. Please install PyTorch to use NNRegressor.")
+        
         if model is None:
             layer_modules = []
             for i in range(len(layers) - 1):
