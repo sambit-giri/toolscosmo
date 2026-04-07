@@ -1,6 +1,7 @@
 """
 External Parameters
 """
+import os
 
 class Bunch(object):
     """
@@ -9,6 +10,15 @@ class Bunch(object):
 
     def __init__(self, data):
         self.__dict__.update(data)
+
+    def update(self, new_data):
+        """Recursively update the Bunch with a dictionary."""
+        for key, value in new_data.items():
+            if isinstance(value, dict) and key in self.__dict__ and isinstance(self.__dict__[key], Bunch):
+                self.__dict__[key].update(value)
+            else:
+                self.__dict__[key] = value
+
 
 
 def code_par():
@@ -45,7 +55,7 @@ def code_par():
 
 def cosmo_par():
     par = {
-        "solver": 'astropy',       # solver/package for cosmological parameter. Options: 'astropy', 'camb', 'tools_cosmo'.
+        "solver": 'toolscosmo',       # solver/package for cosmological parameter. Options: 'astropy', 'camb', 'toolscosmo'.
 
         "Om"  : 0.315,
         "Ob"  : 0.049,
@@ -134,6 +144,25 @@ def mf_par():
         }
     return Bunch(par)
 
+def sfe_par():
+    par = {
+        "f0_sfe": 0.05,
+        "Mp_sfe": 2.0e11,
+        "g1_sfe": 0.49,
+        "g2_sfe": -0.61,
+        "Mt_sfe": 7e8,
+        "g3_sfe": 5.0,
+        "g4_sfe": -5.0, 
+        "f0_sfe_nu": -0.1,
+        "Mp_sfe_nu": 0.0,
+        "Mt_sfe_nu": 0.0,
+        "g1_sfe_nu": 0.0,
+        "g2_sfe_nu": 0.0,
+        "g3_sfe_nu": 0.0,
+        "g4_sfe_nu": 0.0, 
+        }
+    return Bunch(par)
+
 def mar_par():
     par = {
         "alpha_EXP" : 0.79,
@@ -147,13 +176,6 @@ def lyal_par():
     par = {
         "N_ph": 9690.0,          # Nb of photons
         "pl_sed": 0.0,           # power law of sed
-        "f0_sfe": 0.05,         
-        "Mp_sfe": 2.0e11,
-        "g1_sfe": 0.49,
-        "g2_sfe": -0.61,
-        "Mt_sfe": 0.0,
-        "g3_sfe": 2.0,
-        "g4_sfe": -1.0,
         }
     return Bunch(par)
 
@@ -164,13 +186,6 @@ def xray_par():
         "pl_sed": 1.5,           # power law index
         "Emin_sed": 500,        # min energy for normalisation
         "Emax_sed": 8000,       # max energy for normalisation
-        "f0_sfe": 0.05,
-        "Mp_sfe": 2.0e11,
-        "g1_sfe": 0.49,
-        "g2_sfe": -0.61,
-        "Mt_sfe": 0.0,
-        "g3_sfe": 2.0,
-        "g4_sfe": -1.0,
         }
     return Bunch(par)
 
@@ -189,22 +204,7 @@ def lf_par():
         "Muv_max": -8.0,             # max redshift (not tested below 40)
         "NMuv": 30,                  # Nb of redshift bins
         "sig_M": 0.2,
-        "eps_sys": 1,  
-        # fstar
-        "f0_sfe": 0.05,
-        "Mp_sfe": 2.0e11,
-        "g1_sfe": 0.49,
-        "g2_sfe": -0.61,
-        "Mt_sfe": 7e8,
-        "g3_sfe": 5.0,
-        "g4_sfe": -5.0, 
-        "f0_sfe_nu": -0.1,
-        "Mp_sfe_nu": 0.0,
-        "Mt_sfe_nu": 0.0,
-        "g1_sfe_nu": 0.0,
-        "g2_sfe_nu": 0.0,
-        "g3_sfe_nu": 0.0,
-        "g4_sfe_nu": 0.0, 
+        "eps_sys": 1, 
         }
     return Bunch(par)
 
@@ -218,11 +218,11 @@ def io_files():
     return Bunch(par)
 
 
-def par(DM='LCDM', DE='LCDM'):
-    par = Bunch({
+def par(DM='LCDM', DE='LCDM', yaml_file=None):
+    par_bunch = Bunch({
         "cosmo": cosmo_par(),
         "file": io_files(),
-        #"sfe": sfe_par(),
+        "sfe": sfe_par(),
         "mf": mf_par(),
         #"sed": sed_par(),
         "code": code_par(),
@@ -234,4 +234,15 @@ def par(DM='LCDM', DE='LCDM'):
         "DE": de_par(DE),
         "DM": dm_par(DM),
         })
-    return par
+
+    if yaml_file is not None and os.path.exists(yaml_file):
+        try:
+            import yaml
+            with open(yaml_file, 'r') as f:
+                user_dict = yaml.safe_load(f)
+            if user_dict:
+                par_bunch.update(user_dict)
+        except ImportError:
+            print("Warning: PyYAML not installed. Cannot load parameters from YAML file. Please install PyYAML (pip install pyyaml).")
+
+    return par_bunch

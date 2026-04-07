@@ -86,16 +86,22 @@ def Ez_model(param):
     Normalised Hubble parameter.
     Exotic dark energy models can be defined here.
     """
-    try: 
+    # Astropy cosmology is cheap to build and must be recreated whenever DE
+    # parameters change (no caching — reusing a stale object was causing
+    # identical E(z) curves for different w0/wa values).
+    if param.cosmo.solver.lower()=='astropy':
+        cosmo = astropy_cosmo(param).cosmo
+        if cosmo is not None:
+            Ez = lambda z: cosmo.efunc(z)
+            return Ez
+
+    try:
         cosmo = param.cosmo.solver_estimator
     except:
         param = prepare_cosmo_solver(param)
         cosmo = param.cosmo.solver_estimator
 
-    if param.cosmo.solver.lower()=='astropy':
-        Ez = lambda z: cosmo.efunc(z)
-        return Ez
-    elif param.cosmo.solver.lower()=='camb':
+    if param.cosmo.solver.lower()=='camb':
         Ez = lambda z: cosmo.hubble_parameter(z)/cosmo.hubble_parameter(0)
         return Ez
     elif param.cosmo.solver.lower()=='class':
@@ -104,7 +110,7 @@ def Ez_model(param):
     elif param.cosmo.solver.lower() in ['toolscosmo','tools_cosmo']:
         pass
     else:
-        print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
+        print(f'{param.cosmo.solver} is unknown and, therefore, set to toolscosmo.')
 
     Om = param.cosmo.Om
     Or = param.cosmo.Or
@@ -130,7 +136,8 @@ def hubble(z,param):
         cosmo = param.cosmo.solver_estimator
 
     if param.cosmo.solver.lower()=='astropy':
-        return cosmo.H(z).value
+        if cosmo is not None:
+            return cosmo.H(z).value
     elif param.cosmo.solver.lower()=='camb':
         return cosmo.hubble_parameter(z)
     elif param.cosmo.solver.lower()=='class':
@@ -193,13 +200,15 @@ def Omega_DE(z, param):
 
     if param.DE.name.lower()=='lcdm':
         w = -1
-        return Omega_L * a**(3*(1+w))
+        return Omega_L * a**(-3*(1+w))
     elif param.DE.name.lower()=='wcdm':
-        w = param.DE.w 
-        return Omega_L * a**(3*(1+w))
+        w = param.DE.w
+        return Omega_L * a**(-3*(1+w))
     elif param.DE.name.lower()=='cpl':
         w0, wa = param.DE.w0, param.DE.wa
-        return Omega_L * a**(3*(1+w0+wa)) * np.exp(-wa*a)
+        # Standard CPL: w(a) = w0 + wa*(1-a)
+        # rho_DE(a)/rho_DE(1) = a^{-3(1+w0+wa)} * exp(-3*wa*(1-a))
+        return Omega_L * a**(-3*(1+w0+wa)) * np.exp(-3*wa*(1-a))
     else:
         wDE = param.DE.wDE
         integrand = lambda a_prime: (1 + wDE(a_prime)) / a_prime
@@ -274,23 +283,25 @@ def comoving_distance(z,param):
     """
     Comoving distance between z=0 and z.
     """
-    try: 
+    if param.cosmo.solver.lower()=='astropy':
+        cosmo = astropy_cosmo(param).cosmo
+        if cosmo is not None:
+            return cosmo.comoving_distance(z).to('Mpc').value
+
+    try:
         cosmo = param.cosmo.solver_estimator
     except:
         param = prepare_cosmo_solver(param)
         cosmo = param.cosmo.solver_estimator
 
-    if param.cosmo.solver.lower()=='astropy':
-        # cosmo = astropy_cosmo(param).cosmo
-        return cosmo.comoving_distance(z).to('Mpc').value 
-    elif param.cosmo.solver.lower()=='camb':
+    if param.cosmo.solver.lower()=='camb':
         return cosmo.comoving_radial_distance(z)
     elif param.cosmo.solver.lower()=='class':
         return np.vectorize(lambda z0: cosmo.comoving_distance(z0))(z)
     elif param.cosmo.solver.lower() in ['toolscosmo','tools_cosmo']:
         pass
     else:
-        print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
+        print(f'{param.cosmo.solver} is unknown and, therefore, set to toolscosmo.')
     
     if isinstance(z,list): z = np.array(z)
     # dcom = cumtrapz(c/hubble(z,param),z,initial=0)  # [Mpc]
@@ -303,41 +314,45 @@ def luminosity_distance(z,param):
     """
     Luminosity distance between z=0 and z.
     """
-    try: 
+    if param.cosmo.solver.lower()=='astropy':
+        cosmo = astropy_cosmo(param).cosmo
+        if cosmo is not None:
+            return cosmo.luminosity_distance(z).to('Mpc').value
+
+    try:
         cosmo = param.cosmo.solver_estimator
     except:
         param = prepare_cosmo_solver(param)
         cosmo = param.cosmo.solver_estimator
 
-    if param.cosmo.solver.lower()=='astropy':
-        # cosmo = astropy_cosmo(param).cosmo
-        return cosmo.luminosity_distance(z).to('Mpc').value 
-    elif param.cosmo.solver.lower()=='camb':
+    if param.cosmo.solver.lower()=='camb':
         return cosmo.luminosity_distance(z)
     elif param.cosmo.solver.lower()=='class':
         return np.vectorize(lambda z0: cosmo.luminosity_distance(z0))(z)
     elif param.cosmo.solver.lower() in ['toolscosmo','tools_cosmo']:
         pass
     else:
-        print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
+        print(f'{param.cosmo.solver} is unknown and, therefore, set to toolscosmo.')
 
     if isinstance(z,list): z = np.array(z)
     return comoving_distance(z,param)*(1+z)         # [Mpc]
 
-def distance_modulus(z,param): 
+def distance_modulus(z,param):
     """
     Distance modulus between z=0 and z.
     """
-    try: 
+    if param.cosmo.solver.lower()=='astropy':
+        cosmo = astropy_cosmo(param).cosmo
+        if cosmo is not None:
+            return cosmo.distmod(z).to('mag').value
+
+    try:
         cosmo = param.cosmo.solver_estimator
     except:
         param = prepare_cosmo_solver(param)
         cosmo = param.cosmo.solver_estimator
 
-    if param.cosmo.solver.lower()=='astropy':
-        # cosmo = astropy_cosmo(param).cosmo
-        return cosmo.distmod(z).to('mag').value 
-    elif param.cosmo.solver.lower()=='camb':
+    if param.cosmo.solver.lower()=='camb':
         return 5*np.log10(cosmo.luminosity_distance(z))+25
     elif param.cosmo.solver.lower()=='class':
         D_L = np.vectorize(lambda z0: cosmo.luminosity_distance(z0))(z)
@@ -345,7 +360,7 @@ def distance_modulus(z,param):
     elif param.cosmo.solver.lower() in ['toolscosmo','tools_cosmo']:
         pass
     else:
-        print(f'{param.cosmo.solver} is unknown and, therefore, set to tools_cosmo.')
+        print(f'{param.cosmo.solver} is unknown and, therefore, set to toolscosmo.')
 
     if isinstance(z,list): z = np.array(z)
     return 5*np.log10(luminosity_distance(z,param))+25

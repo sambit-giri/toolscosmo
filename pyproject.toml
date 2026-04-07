@@ -1,8 +1,37 @@
 [build-system]
 requires = [
-    "setuptools>=42",
+    "setuptools>=61.0",
     "wheel",
     "Cython",
-    "numpy==1.26.4"
+    "numpy>=1.26.4"
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "toolscosmo"
+version = "0.1.10"
+description = "Cosmology tools"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    { name = "Sambit Giri", email = "sambit.giri@astro.su.se" }
+]
+dependencies = [
+    "cython",
+    "numpy>=1.26.4",
+    "scipy",
+    "matplotlib",
+    "astropy",
+    "pytest",
+    "scikit-learn>=1.2.0",
+    "tqdm",
+    "joblib",
+    "pandas",
+    "tools21cm",
+    "camb",
+    "numba",
+    "pyyaml"
+]
+
+[project.optional-dependencies]
+nonlinear = ["hmcode"]

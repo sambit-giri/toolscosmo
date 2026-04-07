@@ -12,6 +12,8 @@ from .bias import *
 from .generate_ic import *
 from .EFT import *
 from . import extreme_value_stats
+from . import data_utils
+from .data_utils import download_data, load_sne_data, list_datasets
 # from .mass_accretion import *
 # from .source_model import *
 # from .constants import *
