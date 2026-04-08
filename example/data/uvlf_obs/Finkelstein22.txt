@@ -1,5 +1,0 @@
-# Data from TABLE 1 of https://arxiv.org/pdf/2207.12474.pdf
-# exact std_Muv were provided
-# delta_z=0.5
-# z   Muv   std    phi    +std     -std 
-11.8 -20.32 0.80 1.02e-5 +6.10e-6 -5.45e-6

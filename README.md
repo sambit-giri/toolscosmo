@@ -42,17 +42,23 @@ To install the package from source, one should clone this package running the fo
 
 To install the package in the standard location, run the following in the root directory::
 
-    python setup.py install
+    pip install .
 
-In order to install it in a separate directory::
 
-    python setup.py install --home=directory
 
 One can also install the latest version using pip by running the following command::
 
     pip install git+https://github.com/sambit-giri/toolscosmo.git
 
-The dependencies should be installed automatically during the installation process. The list of required packages can be found in the requirements.txt file present in the root directory.
+The dependencies should be installed automatically during the installation process. The list of required packages can be found in the `pyproject.toml` file present in the root directory.
+
+### Optional Dependencies
+
+Some features require optional dependencies to be installed manually:
+- **classy**: Install manually by running `pip install classy`
+- **PyTorch (Hardware Specific)**: 
+  - For CUDA 11.8: `pip install torch==2.0.1+cu118 torchvision==0.15.2+cu118 torchaudio==2.0.2+cu118 -f https://download.pytorch.org/whl/torch_stable.html`
+  - For CPU-only: `pip install torch torchvision torchaudio`
 
 ### Tests
 

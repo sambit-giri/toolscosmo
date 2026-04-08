@@ -44,10 +44,24 @@ def D2_growth_factor(a, param):
     Second-order growth factor using D2(a) = -(3/7) * D1^2(a).
     """
     D1_val = D1_growth_factor(a, param)
-    # D1_prime = compute_derivative(lambda x: growth_factor_a(x,param), a)
-    # Calculate second-order growth factor approximation
     D2_val = - (3/7) * D1_val**2
     return D2_val
+
+def D3a_growth_factor(a, param):
+    """
+    Third-order (3a) growth factor for the tidal-determinant term.
+    EdS approximation: D3a ≈ (1/3) D1^3.
+    """
+    return (1/3) * D1_growth_factor(a, param)**3
+
+def D3b_growth_factor(a, param):
+    """
+    Third-order (3b) growth factor for the mixed φ^(1)–φ^(2) term.
+    EdS approximation: D3b ≈ -(10/21) D1 D2 ≈ (10/49) D1^3.
+    """
+    D1 = D1_growth_factor(a, param)
+    D2 = D2_growth_factor(a, param)
+    return -(10/21) * D1 * D2
 
 def create_k_grid_fft(grid_size, box_size):
     k_grid = 2 * np.pi * np.fft.fftfreq(grid_size, d=box_size / grid_size)
@@ -62,13 +76,14 @@ def create_k_grid_rfft(grid_size, box_size):
     kmag = np.sqrt(kx**2 + ky**2 + kz**2)
     return [kx, ky, kz], kmag
 
-def generate_gaussian_random_field(grid_size, box_size, power_spectrum=None, param=None, random_seed=42, verbose=True, return_white_noise=False):
+def generate_gaussian_random_field(grid_size, box_size, power_spectrum=None, param=None, random_seed=42,
+                                   fixed_amplitude=False, verbose=True, return_white_noise=False):
     """
     Generate a Gaussian random field delta(x) with a given power spectrum P(k).
 
     This function creates a Gaussian random field in real space by first generating a random field
     in Fourier space, and then transforming it back to real space using an inverse Fourier transform.
-    The field is constructed such that its power spectrum matches the provided input or is inferred 
+    The field is constructed such that its power spectrum matches the provided input or is inferred
     from the cosmological parameters.
 
     Parameters
@@ -78,32 +93,38 @@ def generate_gaussian_random_field(grid_size, box_size, power_spectrum=None, par
     box_size : float
         The physical size of the simulation box (in units of Mpc/h).
     power_spectrum : dict or function, optional
-        The power spectrum P(k) to use for generating the field. If None, the function will infer it 
+        The power spectrum P(k) to use for generating the field. If None, the function will infer it
         from the cosmological parameters `param` by calling `get_Plin`.
     param : dict, optional
         A dictionary of cosmological parameters, such as matter density parameter, Hubble constant, etc.
         Used only if `power_spectrum` is None.
     random_seed : int, optional
         Seed for the random number generator. Default is 42.
+        A negative seed generates the **paired** field of ``abs(random_seed)``: same phases but
+        with the overall sign of the density contrast flipped (Angulo & Pontzen 2016).
+    fixed_amplitude : bool, optional
+        If True, fix the amplitude of each Fourier mode to exactly sqrt(P(k)) (only the phase is
+        random). This eliminates sample-variance scatter in the amplitude, so the measured P(k) of
+        a single realisation matches the input P(k) exactly. Default is False.
     verbose : bool, optional
         If True, prints progress updates. Default is True.
-    
+
     Returns
     -------
-    delta_x : np.ndarray
-        The generated Gaussian random field in real space, with shape (grid_size, grid_size, grid_size).
-    kx, ky, kz : np.ndarray
-        The wavevectors corresponding to the grid in Fourier space along each axis.
-    
+    dict with keys:
+        ``delta_lin`` — Gaussian random field in real space, shape (grid_size, grid_size, grid_size).
+        ``kx``, ``ky``, ``kz`` — wavevectors in Fourier space.
+
     Notes
     -----
-    The generated field has the specified power spectrum in Fourier space, and its variance in real 
-    space is set by the power spectrum normalization. The function uses the inverse Fourier transform 
-    to convert the field back to real space after applying the correct amplitude in Fourier space.
-    
+    **Fixed-and-paired simulations** (Angulo & Pontzen 2016):
+    Use ``fixed_amplitude=True`` to suppress sample-variance noise in P(k) measurements.
+    Use a negative seed to obtain the partner simulation with the same phases but opposite sign,
+    so that ``(P_fixed + P_paired) / 2`` converges to the ensemble mean faster.
+
     This function can be used to generate initial conditions for cosmological simulations.
     """
-    if verbose: 
+    if verbose:
         print('Generating Gaussian random field...')
         tstart = time()
 
@@ -111,7 +132,7 @@ def generate_gaussian_random_field(grid_size, box_size, power_spectrum=None, par
     if power_spectrum is None:
         power_spectrum = get_Plin(param)
 
-    np.random.seed(random_seed)
+    np.random.seed(abs(random_seed))
     [kx, ky, kz], k = create_k_grid_fft(grid_size, box_size)
 
     # Interpolating the power spectrum
@@ -120,13 +141,22 @@ def generate_gaussian_random_field(grid_size, box_size, power_spectrum=None, par
 
     # Generate Gaussian random field in Fourier space
     delta_k_white = (np.random.normal(size=(grid_size, grid_size, grid_size)) +
-               1j * np.random.normal(size=(grid_size, grid_size, grid_size))) 
+               1j * np.random.normal(size=(grid_size, grid_size, grid_size)))
+
+    if fixed_amplitude:
+        # Fix amplitude to sqrt(2) (= E[|z|] for standard complex Gaussian) keeping only the phase.
+        # Each mode then has exactly the right power; only phase variance remains.
+        amp = np.abs(delta_k_white)
+        amp[amp == 0] = 1.
+        delta_k_white = delta_k_white / amp * np.sqrt(2)
+
     delta_k = delta_k_white * sqrtPgrid
 
-    # Transform back to real space
-    delta_r = ifftn(delta_k, norm='ortho').real
+    # Transform back to real space; negate for paired simulation (negative seed)
+    sign = -1 if random_seed < 0 else 1
+    delta_r = sign * ifftn(delta_k, norm='ortho').real
 
-    if verbose: 
+    if verbose:
         print(f'...done in {(time()-tstart):.3f} seconds')
     out = {'delta_lin': delta_r, 'kx': kx, 'ky': ky, 'kz': kz}
     if return_white_noise:
@@ -238,6 +268,85 @@ def second_order_lpt(delta_k, D2, grad_kernel, k_squared, oversampling_factor):
     disp_z2 = D2 * Psi_2LPT_r[2]
 
     return disp_x2, disp_y2, disp_z2
+
+
+def third_order_lpt(delta_k, D3a, D3b, grad_kernel, k_squared, oversampling_factor):
+    """
+    Calculate the third-order displacement field using 3LPT.
+
+    Two contributions are summed:
+    - 3a: Ψ^(3a) = D3a ∇φ^(3a),  sourced by det(∂_i∂_j φ^(1))  (tidal determinant).
+    - 3b: Ψ^(3b) = D3b ∇φ^(3b),  sourced by G_2(φ^(1), φ^(2))  (mixed 1st/2nd order).
+
+    Growth factors used (EdS approximations):
+        D3a ≈  (1/3) D1^3
+        D3b ≈ -(10/21) D1 D2  ≈ (10/49) D1^3
+
+    References: Bouchet et al. 1995; Scoccimarro 2002; Michaux et al. 2021.
+
+    Note on sign convention: phi_dxdx[i,j] = FT^{-1}[k_i k_j φ_k] = −∂_i∂_j φ,
+    so det(phi_dxdx) = −det(Hessian φ).  The 3a source det(Hessian φ^(1)) is
+    therefore −det(phi_dxdx_1), hence the leading minus sign below.
+    For the 3b source, the minus signs cancel in every product, so no extra sign is needed.
+    """
+    grid_size_eff = delta_k.shape[0]
+    grid_size = int(grid_size_eff // oversampling_factor)
+
+    # 1LPT potential and displacement in Fourier space
+    phi_k = -delta_k / k_squared
+    Psi_1LPT_k = -grad_kernel * phi_k   # (3, N, N, N//2+1)
+
+    # Hessian of φ^(1): phi_dxdx_1[i,j] = -∂_i∂_j φ^(1)
+    phi_dxdx_1 = np.zeros((3, 3, grid_size_eff, grid_size_eff, grid_size_eff))
+    for i in range(3):
+        for j in range(3):
+            phi_dxdx_1[i, j] = irfftn(grad_kernel[i] * Psi_1LPT_k[j], norm='ortho').real
+
+    # 2LPT source (reuse same formula as second_order_lpt)
+    phi_2LPT_src = (phi_dxdx_1[0,0]*phi_dxdx_1[1,1] - phi_dxdx_1[0,1]**2 +
+                    phi_dxdx_1[0,0]*phi_dxdx_1[2,2] - phi_dxdx_1[0,2]**2 +
+                    phi_dxdx_1[2,2]*phi_dxdx_1[1,1] - phi_dxdx_1[2,1]**2)
+    phi_2LPT_k   = rfftn(phi_2LPT_src, norm='ortho')
+    Psi_2LPT_k   = -grad_kernel * phi_2LPT_k / k_squared
+
+    # Hessian of φ^(2): phi_dxdx_2[i,j] = -∂_i∂_j φ^(2)
+    phi_dxdx_2 = np.zeros((3, 3, grid_size_eff, grid_size_eff, grid_size_eff))
+    for i in range(3):
+        for j in range(3):
+            phi_dxdx_2[i, j] = irfftn(grad_kernel[i] * Psi_2LPT_k[j], norm='ortho').real
+
+    # 3a source: det(Hessian φ^(1)) = -det(phi_dxdx_1)
+    d = phi_dxdx_1
+    phi_3a = -(
+        d[0,0] * (d[1,1]*d[2,2] - d[1,2]**2)
+      - d[0,1] * (d[0,1]*d[2,2] - d[1,2]*d[0,2])
+      + d[0,2] * (d[0,1]*d[1,2] - d[1,1]*d[0,2])
+    )
+
+    # 3b source: mixed G2(φ^(1), φ^(2))  — signs cancel in each product
+    e = phi_dxdx_2
+    phi_3b = (
+        d[0,0]*e[1,1] + e[0,0]*d[1,1] - 2*d[0,1]*e[0,1]
+      + d[0,0]*e[2,2] + e[0,0]*d[2,2] - 2*d[0,2]*e[0,2]
+      + d[1,1]*e[2,2] + e[1,1]*d[2,2] - 2*d[1,2]*e[1,2]
+    )
+
+    # Solve Poisson equations and compute displacements for both terms
+    phi_3a_k  = rfftn(phi_3a, norm='ortho')
+    Psi_3a_k  = -grad_kernel * phi_3a_k / k_squared
+    Psi_3a_r  = np.array([irfftn(Psi_3a_k[i], norm='ortho').real
+                          for i in range(3)])[:, :grid_size, :grid_size, :grid_size]
+
+    phi_3b_k  = rfftn(phi_3b, norm='ortho')
+    Psi_3b_k  = -grad_kernel * phi_3b_k / k_squared
+    Psi_3b_r  = np.array([irfftn(Psi_3b_k[i], norm='ortho').real
+                          for i in range(3)])[:, :grid_size, :grid_size, :grid_size]
+
+    disp_x3 = D3a * Psi_3a_r[0] + D3b * Psi_3b_r[0]
+    disp_y3 = D3a * Psi_3a_r[1] + D3b * Psi_3b_r[1]
+    disp_z3 = D3a * Psi_3a_r[2] + D3b * Psi_3b_r[2]
+
+    return disp_x3, disp_y3, disp_z3
 
 
 # def first_order_lpt(delta_k, D1, kx, ky, kz):
@@ -371,8 +480,10 @@ def generate_initial_condition_positions(grid_size, box_size, z, param, LPT=2, p
     particle positions are returned, adjusted by the LPT displacements and periodic boundary conditions.
     """
     a = 1/(1+z)
-    D1 = D1_growth_factor(a, param)
-    D2 = D2_growth_factor(a, param)
+    D1  = D1_growth_factor(a, param)
+    D2  = D2_growth_factor(a, param)
+    D3a = D3a_growth_factor(a, param)
+    D3b = D3b_growth_factor(a, param)
 
     if delta_lin is None:
         deltagrf  = generate_gaussian_random_field(grid_size, box_size, power_spectrum=power_spectrum, param=param, random_seed=random_seed, verbose=verbose)
@@ -423,21 +534,23 @@ def generate_initial_condition_positions(grid_size, box_size, z, param, LPT=2, p
 
     # 1LPT (Zel'dovich Approximation)
     disp_x1, disp_y1, disp_z1 = first_order_lpt(delta_k, D1, grad_kernel, k_squared, oversampling_factor)
-    # disp_x1, disp_y1, disp_z1 = first_order_lpt(delta_k, D1, kx, ky, kz)
     # 2LPT Displacement
     disp_x2, disp_y2, disp_z2 = (0, 0, 0)
     if LPT > 1:
         disp_x2, disp_y2, disp_z2 = second_order_lpt(delta_k, D2, grad_kernel, k_squared, oversampling_factor)
-        # disp_x2, disp_y2, disp_z2 = second_order_lpt(delta_k, D1, kx, ky, kz)
-    if verbose: 
+    # 3LPT Displacement (two contributions: 3a det-term + 3b mixed term)
+    disp_x3, disp_y3, disp_z3 = (0, 0, 0)
+    if LPT > 2:
+        disp_x3, disp_y3, disp_z3 = third_order_lpt(delta_k, D3a, D3b, grad_kernel, k_squared, oversampling_factor)
+    if verbose:
         print(f'...done in {time()-tstart:.3f} seconds')
 
     # Initial particle positions
     x = np.linspace(0, box_size, grid_size, endpoint=False)
     X, Y, Z = np.meshgrid(x, x, x, indexing='ij')
-    particles_x = X + disp_x1 + disp_x2
-    particles_y = Y + disp_y1 + disp_y2
-    particles_z = Z + disp_z1 + disp_z2
+    particles_x = X + disp_x1 + disp_x2 + disp_x3
+    particles_y = Y + disp_y1 + disp_y2 + disp_y3
+    particles_z = Z + disp_z1 + disp_z2 + disp_z3
 
     # Apply periodic boundary conditions
     particles_x %= box_size
@@ -576,7 +689,7 @@ def compute_velocity(delta, kx, ky, kz, a, param):
 
     return vx, vy, vz
 
-def particles_on_grid(positions, grid_size, box_size, MAS='PCS', verbose=True):
+def particles_on_grid(positions, grid_size, box_size, MAS='PCS', backend='auto', verbose=True):
     """
     Assign particles to a grid and compute the density field using a Mass Assignment Scheme (MAS).
 
@@ -595,6 +708,11 @@ def particles_on_grid(positions, grid_size, box_size, MAS='PCS', verbose=True):
         The physical size of the simulation box (in units of Mpc/h).
     MAS : str, optional
         The mass assignment scheme to use. Default is 'PCS' (Piecewise Constant Scheme).
+    backend : str
+        'auto'   — try numba (beorn) → numpy (built-in). Use 'pylians' explicitly if needed.
+        'numpy'  — always use the built-in pure-NumPy implementation (default fallback)
+        'numba'  — use beorn's Numba JIT backend (requires: pip install toolscosmo[numba])
+        'pylians'— use pylians MAS_library    (requires: pip install toolscosmo[pylians])
     verbose : bool, optional
         If True, prints progress updates. Default is True.
 
@@ -610,19 +728,23 @@ def particles_on_grid(positions, grid_size, box_size, MAS='PCS', verbose=True):
     based on the chosen scheme ('PCS' or others). The density contrast is computed as the overdensity 
     (delta = density - mean density).
     """
-    import MAS_library as MASL
+    from .mass_assignment import assign_mass
 
-    if positions.shape[1]==2:
-        # define 2D density field
-        delta = np.zeros((grid_size,grid_size), dtype=np.float32)
-    elif positions.shape[1]==3:
-        # define 3D density field
-        delta = np.zeros((grid_size,grid_size,grid_size), dtype=np.float32)
+    if positions.shape[1] == 2:
+        raise NotImplementedError("2D mass assignment is not yet supported by the built-in backend.")
+    delta = np.zeros((grid_size, grid_size, grid_size), dtype=np.float32)
 
-    # construct 2D density field
-    MASL.MA(positions.astype(np.float32), delta, box_size, MAS, verbose=verbose)
+    if verbose:
+        print(f'\nUsing {MAS} (backend={backend}) mass assignment scheme')
+        tstart = time()
 
-    # Compute overdensity and density constrast
-    delta /= np.mean(delta, dtype=np.float64);  delta -= 1.0
+    assign_mass(delta, box_size, positions, scheme=MAS, backend=backend, verbose=verbose)
+
+    if verbose:
+        print(f'Time taken = {time()-tstart:.3f} seconds\n')
+
+    # Compute overdensity and density contrast
+    delta /= np.mean(delta, dtype=np.float64)
+    delta -= 1.0
 
     return delta

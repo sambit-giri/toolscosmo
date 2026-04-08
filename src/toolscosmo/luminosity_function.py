@@ -114,7 +114,7 @@ class UVLF:
         zz = output['z']
         mm = output['m']
         f_duty = kwargs.get('f_duty')
-        if f_duty=='EXP': f_duty = lambda M: np.exp(-param.lf.Mt_sfe/M)
+        if f_duty=='EXP': f_duty = lambda M: np.exp(-param.sfe.Mt_sfe/M)
         else: f_duty = lambda M: np.ones_like(M)
         output['f_duty'] = f_duty
         dndlnm = output['dndlnm']*f_duty(output['m'])
