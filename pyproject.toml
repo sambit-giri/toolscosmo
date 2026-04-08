@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "toolscosmo"
-version = "0.1.10"
+version = "0.2.0"
 description = "Cosmology tools"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -34,4 +34,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-nonlinear = ["hmcode"]
+nonlinear      = ["hmcode"]
+numba          = ["beorn[numba]"]
+pylians        = ["pylians3"]
+differentiable = ["jax", "jaxlib", "diffrax"]

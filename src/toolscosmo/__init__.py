@@ -10,6 +10,7 @@ from .param import *
 from .cosmo import *
 from .bias import *
 from .generate_ic import *
+from .mass_assignment import assign_mass
 from .EFT import *
 from . import extreme_value_stats
 from . import data_utils
