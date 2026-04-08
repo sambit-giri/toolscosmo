@@ -3,10 +3,11 @@ Utilities for downloading and loading observational datasets.
 
 Usage
 -----
-    from toolscosmo.data_utils import download_data, load_sne_data
+    from toolscosmo.data_utils import download_data, load_sne_data, load_uvlf_data
 
-    download_data('pantheon')          # one-time download
-    sne = load_sne_data('pantheon')    # loads (downloads if needed)
+    download_data('pantheon')                    # one-time download
+    sne  = load_sne_data('pantheon')             # loads (downloads if needed)
+    uvlf = load_uvlf_data(source='corecon')      # requires: pip install corecon
 """
 
 import os
@@ -278,3 +279,112 @@ def _load_union21(path, **kwargs):
         'mu_err' : data['mu_err'].astype(float),
         'raw'    : data,
     }
+
+
+# ---------------------------------------------------------------------------
+# UVLF observations via corecon
+# ---------------------------------------------------------------------------
+
+def load_uvlf_data(source='corecon', redshifts=None, references=None,
+                   overwrite=False, dest_dir=None):
+    """
+    Load UV Luminosity Function observations.
+
+    On first call the data are fetched from ``source`` and written to a CSV
+    file inside the package ``input_data`` folder (name contains the source
+    so different sources can coexist).  Subsequent calls simply read the cache.
+
+    Parameters
+    ----------
+    source : str
+        Data source.  Currently only ``'corecon'`` is supported, which uses
+        the ``corecon`` package (not a hard dependency; install separately:
+        ``pip install corecon``).
+    redshifts : list of float or None
+        If given, return only rows whose redshift is within ±0.5 of one of
+        these values.
+    references : list of str or None
+        If given, keep only rows whose ``reference`` column matches one of
+        these strings (e.g. ``['Bouwens et al. 2015', 'Harikane et al. 2023']``).
+    overwrite : bool
+        Re-fetch from source even if a local cache already exists.
+    dest_dir : str or None
+        Override the cache directory (default: package ``input_data`` folder).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Columns:
+
+        * ``reference``  — citation string (e.g. "Bouwens et al. 2015")
+        * ``z``          — redshift
+        * ``M_UV``       — absolute UV magnitude
+        * ``log_phi``    — log₁₀ of UVLF [Mpc⁻³ mag⁻¹]
+        * ``err_up``     — upper uncertainty in dex (NaN for upper limits)
+        * ``err_down``   — lower uncertainty in dex (NaN for upper limits)
+        * ``upper_lim``  — True if row is an upper limit
+
+    Examples
+    --------
+    >>> df = load_uvlf_data(source='corecon')
+    >>> df_z6 = load_uvlf_data(source='corecon', redshifts=[6])
+    >>> df.reference.unique()                         # all 36 studies
+    """
+    try:
+        import pandas as pd
+    except ImportError:
+        raise ImportError("pandas is required: pip install pandas")
+
+    source = source.lower()
+    if source != 'corecon':
+        raise ValueError(f"Unknown source '{source!r}'. Supported sources: ['corecon']")
+
+    cache_dir = dest_dir or _DATA_DIR
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_file = os.path.join(cache_dir, 'uvlf_corecon.csv')
+
+    if not os.path.exists(cache_file) or overwrite:
+        try:
+            import corecon
+        except ImportError:
+            raise ImportError(
+                "corecon is not installed.  Install it with:\n"
+                "    pip install corecon\n"
+                f"Or manually place a correctly-formatted file at:\n"
+                f"    {cache_file}"
+            )
+
+        print("Fetching UVLF data from corecon ...")
+        cc_data = corecon.get('UV_luminosity_function')
+        rows = []
+        for ref_key, entry in cc_data.items():
+            n = len(entry.M_UV)
+            err_up   = np.asarray(entry.err_up,   dtype=float)
+            err_down = np.asarray(entry.err_down, dtype=float)
+            for i in range(n):
+                rows.append({
+                    'reference': ref_key,
+                    'z'        : float(entry.redshift[i]),
+                    'M_UV'     : float(entry.M_UV[i]),
+                    'log_phi'  : float(entry.values[i]),
+                    'err_up'   : float(err_up[i]),
+                    'err_down' : float(err_down[i]),
+                    'upper_lim': bool(entry.upper_lim[i]),
+                })
+        df_all = pd.DataFrame(rows)
+        df_all.to_csv(cache_file, index=False)
+        print(f"Cached {len(df_all)} data points → {cache_file}")
+    else:
+        df_all = pd.read_csv(cache_file)
+
+    # --- optional filters ---------------------------------------------------
+    df = df_all.copy()
+    if references is not None:
+        df = df[df['reference'].isin(references)]
+    if redshifts is not None:
+        mask = pd.Series(False, index=df.index)
+        for z in redshifts:
+            mask |= (np.abs(df['z'] - z) <= 0.5)
+        df = df[mask]
+
+    return df.reset_index(drop=True)
