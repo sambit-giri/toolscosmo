@@ -4,6 +4,8 @@ dist
 paper
 *.egg-info
 tests/__pycache__*
+src/toolscosmo/*.so
+src/toolscosmo/*.o
 
 
 

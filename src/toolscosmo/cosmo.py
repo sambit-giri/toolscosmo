@@ -16,10 +16,10 @@ from .emulate_BoltmannSolver import *
 # from emulate_BoltmannSolver import *
 
 def prepare_cosmo_solver(param):
-    if param.code.verbose: print('Preparing cosmological solvers...')
+    # if param.code.verbose: print('Preparing cosmological solvers...')
     if param.cosmo.solver.lower()=='astropy':
         solver_estimator = astropy_cosmo(param).cosmo
-        if param.code.verbose: print('astropy will be used.')
+        # if param.code.verbose: print('astropy will be used.')
     elif param.cosmo.solver.lower()=='camb':
         cosmo_camb = run_camb(param)
         solver_estimator = cosmo_camb['results']
@@ -29,7 +29,7 @@ def prepare_cosmo_solver(param):
         else:
             print('CAMB is used for cosmological calculations.')
             print(f'Using CAMB instead of {param.file.ps} for modelling linear power spectrum will avoid running another Boltzmann solver.')
-        if param.code.verbose: print('CAMB will be used.')
+        # if param.code.verbose: print('CAMB will be used.')
     elif param.cosmo.solver.lower()=='class':
         cosmo_class = run_class(param)
         solver_estimator = cosmo_class.class_module
@@ -39,11 +39,11 @@ def prepare_cosmo_solver(param):
         else:
             print('CLASS is used for cosmological calculations.')
             print(f'Using CLASS instead of {param.file.ps} for modelling linear power spectrum will avoid running another Boltzmann solver.')
-        if param.code.verbose: print('CLASS will be used.')
+        # if param.code.verbose: print('CLASS will be used.')
     else: 
         solver_estimator = None 
     param.cosmo.solver_estimator = solver_estimator
-    if param.code.verbose: print('...done')
+    # if param.code.verbose: print('...done')
     return param
 
 def rhoc_of_z(z,param):
@@ -122,7 +122,8 @@ def Ez_model(param):
     elif param.DE.name.lower()=='growing_neutrino_mass':
         Ez = lambda z: Ez_growing_nu(z, Om0=Om, Ok0=0.0, Or0=Or, Onu0=param.DE.Onu, Oe0=param.DE.Oede)
     else:
-        Ez = lambda z: (Om*(1+z)**3 + Or*(1+z)**4 + Ol)**0.5
+        # Generic dark energy via Omega_DE (covers custom w(z) and other exotic models)
+        Ez = lambda z: (Om*(1+z)**3 + Or*(1+z)**4 + Omega_DE(z, param))**0.5
     return Ez
 
 def hubble(z,param):
@@ -154,19 +155,40 @@ def hubble(z,param):
 
 def growth_factor(z, param):
     """
-    Growth factor from Longair textbook (Eq. 11.56).
-    Also see arXiv:astro-ph/0006089
+    Linear growth factor D(z)/D(0).
 
-    z: array of redshifts from zmin to zmax
+    Selects the solver via param.code.Dz_solver:
+      - 'Hamilton2000' (default): exact integral form only for LCDM (Heath 1977 /
+        Hamilton 2001). Uses D ∝ H(z)∫(a'H)^{-3}da', which assumes H(z) is the
+        decaying mode of the growth ODE. This holds for LCDM (w=-1) but NOT for
+        w≠-1. Errors of 3-7% can occur for WCDM/CPL.
+      - 'solveODE' / 'ode': direct numerical integration of the growth ODE.
+        Valid for any dark energy model via Omega_DE().
+      - 'Linder2005' / 'linder(2005)': fitting function (Linder 2005, PhRvD 72 043529).
+        Accurate for most dynamical dark energy models.
+      - 'CPT' / 'CarrollPressTurner1992': analytic fitting function (Carroll, Press &
+        Turner 1992, ARA&A 30 499). Accurate (~1%) for flat LCDM only.
+
+    Parameters
+    ----------
+    z : array_like
+        Redshift(s).
+    param : Bunch
+        Cosmological parameter object.
+
+    Returns
+    -------
+    D(z)/D(0) : ndarray
     """
-    if param.code.Dz_solver.lower() in ['linder2005','linder(2005)','linder (2005)']:
-        # print('Linder (2005) fitting function')
+    solver = param.code.Dz_solver.lower()
+    if solver in ['linder2005','linder(2005)','linder (2005)']:
         return growth_factor_Linder2005(z, param)
-    elif param.code.Dz_solver.lower() in ['solveode','ode']:
-        # print('Solving the ODE')
+    elif solver in ['solveode','ode']:
         return growth_factor_solveODE(z, param)
+    elif solver in ['cpt','carrollpressturner','carrollpressturner1992','cpt1992']:
+        return growth_factor_CPT(z, param)
     else:
-        # print('Hamilton (2000) fitting function')
+        # Hamilton (2000) / Heath (1977) exact integral
         Om = param.cosmo.Om
         Dz = np.vectorize(lambda z: hubble(z,param) * (5.0*Om/2.0) * quad(lambda a: (a*hubble(1/a-1,param))**(-3), 0.001 if 1/(1+z)>0.01 else 1/(1+z)/10., 1/(1+z), epsrel=5e-3, limit=100)[0])
         return Dz(z)/Dz(0)
@@ -216,46 +238,55 @@ def Omega_DE(z, param):
         return Omega_L * np.exp(3 * integral)
 
 def growth_factor_solveODE(z, param):
-    # Define cosmological parameters
-    H0 = param.cosmo.h0*100    # Hubble constant in km/s/Mpc
-    Omega_m = param.cosmo.Om   # Matter density parameter
+    """
+    Numerically solve the linear growth ODE for the growth factor D(a).
+
+    The growth equation in terms of scale factor a:
+        D''(a) + (3/a + E'(a)/E(a)) D'(a) = (3 Omega_m0) / (2 a^5 E(a)^2) * D(a)
+
+    where E(a) = H(a)/H0 and primes denote d/da.
+
+    Initial conditions: D ~ a and dD/da ~ 1 in matter domination (a_init = 1e-3).
+    Works for any dark energy model supported by Omega_DE().
+    """
+    Omega_m = param.cosmo.Om   # Matter density parameter (z=0)
     Omega_k = param.cosmo.Ok   # Curvature density parameter
     Omega_r = param.cosmo.Or   # Radiation density parameter
     Omega_L = param.cosmo.Ode  # Dark energy density parameter
-    if Omega_L is None: Omega_L = 1-Omega_m-Omega_k-Omega_r
+    if Omega_L is None: Omega_L = 1 - Omega_m - Omega_k - Omega_r
 
-    w = lambda a: w_DE(1/a-1, param)
     Omega_DE_a = lambda a: Omega_DE(1/a-1, param)
-    
+
     def E(a):
         return np.sqrt(Omega_m * a**-3 + Omega_r * a**-4 + Omega_k * a**-2 + Omega_DE_a(a))
 
     def dEda(a):
-        # Derivative of Hubble parameter w.r.t scale factor
-        return - (3/2) * Omega_m * a**-4 / E(a) - 2 * Omega_r * a**-5 / E(a) - Omega_k * a**-3 / E(a) + (3 * (1 + w(a)) * Omega_DE_a(a)) / (2 * a * E(a))
+        # Numerical derivative of E(a) to avoid sign errors in the analytical form
+        da = 1e-5
+        a_p = a + da
+        a_m = max(a - da, 1e-6)
+        return (E(a_p) - E(a_m)) / (a_p - a_m)
 
     def diff_Da(y, a):
-        # Define the growth factor differential equation
         D, dDda = y
-        dD2da2 = - (3/(2 * a**2 * E(a)**2)) * Omega_m * D - (3/a + (1/E(a)) * (dEda(a))) * dDda
+        Ea = E(a)
+        # Growth ODE: D'' + (3/a + E'/E) D' = 3*Omega_m / (2*a^5*E^2) * D
+        dD2da2 = (3 * Omega_m / (2 * a**5 * Ea**2)) * D - (3/a + dEda(a) / Ea) * dDda
         return [dDda, dD2da2]
 
-    # Initial conditions
-    a_init = 1e-3  # Initial scale factor (early universe)
-    D_init = a_init  # Initial growth factor D(a) ≈ a
-    dDda_init = 1.0  # Initial derivative dD/da ≈ 1
-    y0 = [D_init, dDda_init]
+    # Initial conditions: matter-domination growing mode D ~ a
+    a_init = 1e-3
+    y0 = [a_init, 1.0]
 
-    # Scale factor range to solve over
+    # Solve from a_init to a=1 (z=0)
     a_vals = np.linspace(a_init, 1, 1000)
-    z_vals = 1/a_vals-1
-    # Solve the differential equation
     sol = odeint(diff_Da, y0, a_vals)
-    # Extract the growth factor solution
     D_vals = sol[:, 0]
 
-    Dz = interp1d(z_vals,D_vals)
-    return Dz(z)/Dz(0)
+    # a_vals is increasing → z_vals is decreasing; reverse for monotone interpolation
+    z_vals = 1/a_vals - 1
+    Dz = interp1d(z_vals[::-1], D_vals[::-1], bounds_error=False, fill_value='extrapolate')
+    return Dz(np.atleast_1d(z)) / Dz(0)
 
 def growth_factor_Linder2005(z, param):
     """
@@ -277,6 +308,47 @@ def growth_factor_Linder2005(z, param):
         ln_Da = quad(lambda a: (Oa(a)**gamma-1)/a, 0.01, 1/(1+z[i]), epsrel=5e-3, limit=100)[0]
         Dz = np.append(Dz,np.exp(ln_Da))
     return Dz/D0/(1+z)
+
+def growth_factor_CPT(z, param):
+    """
+    Fitting function for growth factor from Carroll, Press & Turner (1992, ARA&A, 30, 499).
+
+    This approximate analytic fit is valid for flat LCDM cosmologies (~1% accuracy).
+    It uses the redshift-dependent matter and dark energy density parameters following
+    the convention of Eisenstein (1997) and Hamilton (2001).
+
+    NOT suitable for dynamical dark energy (WCDM, CPL, etc.) or non-flat universes.
+
+    Parameters
+    ----------
+    z : array_like
+        Redshift(s).
+    param : Bunch
+        Cosmological parameter object.
+
+    Returns
+    -------
+    D(z)/D(0) : ndarray
+        Normalized growth factor.
+    """
+    Om0 = param.cosmo.Om
+    H0 = hubble(0, param)
+
+    def g(Om, Ol):
+        # Growth suppression factor (Carroll, Press & Turner 1992, eq. 29)
+        return (5/2) * Om / (Om**(4/7) - Ol + (1 + Om/2) * (1 + Ol/70))
+
+    def Omz(z):
+        Hz = hubble(z, param)
+        return Om0 * (1+z)**3 / (Hz/H0)**2
+
+    def Olz(z):
+        Hz = hubble(z, param)
+        return Omega_DE(z, param) / (Hz/H0)**2
+
+    g0 = g(Omz(0), Olz(0))
+    Dz = np.vectorize(lambda zi: g(Omz(zi), Olz(zi)) / (g0 * (1+zi)))
+    return Dz(np.atleast_1d(z))
 
 
 def comoving_distance(z,param):

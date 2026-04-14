@@ -49,7 +49,7 @@ def code_par():
         "MA": 'EPS',                # mass accretion model [EPS,EXP,AM]
         "sfrd_from_MA": True,       # True/False: calculate sfrd using mass accretion / time derivative of fcoll 
         "bias": 'ellipsoidal',      # [ellipsoidal/spherical/tinker/jing]
-        "Dz_solver": 'Hamilton2000',# Default: 'Hamilton2000', Options: 'solveODE','Hamilton2000','Linder2005'
+        "Dz_solver": 'Linder2005',  # Default: 'Linder2005'. Options: 'solveODE','Hamilton2000','Linder2005','CPT'
         }
     return Bunch(par)
 
