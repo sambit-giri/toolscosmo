@@ -6,15 +6,13 @@ from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 
-try: import tensorflow as tf
-except: print('Install Tensorflow to use prob_nn.')
-
 try: 
     import torch
     from torch import nn 
     import torch.optim as optim
+    torch_available = True
 except: 
-    print('Install PyTorch.')
+    torch_available = False
 
 def moving_average(data, window_size):
     '''
@@ -23,7 +21,6 @@ def moving_average(data, window_size):
     cumsum = np.cumsum(data)
     cumsum[window_size:] = cumsum[window_size:] - cumsum[:-window_size]
     return cumsum[window_size - 1:] / window_size
-
 
 def save_model(model, filename):
     pickle.dump(model, open(filename,'wb'))
@@ -58,6 +55,9 @@ class NNRegressor:
                  optimizer='Adam', loss_fn='MSE',
                  learning_rate=1e-4,
                  ):
+        if not torch_available:
+            raise ImportError("PyTorch is not installed. Please install PyTorch to use NNRegressor.")
+        
         if model is None:
             layer_modules = []
             for i in range(len(layers) - 1):
@@ -241,16 +241,16 @@ class NNRegressor:
         return out 
     
 
-# SIREN layer definition
-class SirenLayer(nn.Module):
-    def __init__(self, in_features, out_features, w0=30.0, dropout_prob=0.5):
-        super(SirenLayer, self).__init__()
-        self.in_features = in_features
-        self.linear = nn.Linear(in_features, out_features)
-        self.dropout = nn.Dropout(dropout_prob)
-        self.w0 = w0
+# # SIREN layer definition
+# class SirenLayer(nn.Module):
+#     def __init__(self, in_features, out_features, w0=30.0, dropout_prob=0.5):
+#         super(SirenLayer, self).__init__()
+#         self.in_features = in_features
+#         self.linear = nn.Linear(in_features, out_features)
+#         self.dropout = nn.Dropout(dropout_prob)
+#         self.w0 = w0
 
-    def forward(self, x):
-        y = self.linear(x)
-        y = self.dropout(y)  # Apply dropout
-        return torch.sin(self.w0 * y)
+#     def forward(self, x):
+#         y = self.linear(x)
+#         y = self.dropout(y)  # Apply dropout
+#         return torch.sin(self.w0 * y)

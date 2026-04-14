@@ -19,12 +19,12 @@ def fstar(zz,m,type_of_flux,param):
     """
     M178m_ov_M200c = 1.0 #1.4
     if (type_of_flux=='xray'):
-        fstar0 = param.xray.f0_sfe
+        fstar0 = param.sfe.f0_sfe
         fstar = np.full((len(zz),len(m)),fstar0)
         Mcut = 1e8*param.cosmo.h0/M178m_ov_M200c
         fstar[:,np.where(m<Mcut)[0]]=0
     elif (type_of_flux=='lyal'):
-        fstar0 = param.lyal.f0_sfe
+        fstar0 = param.sfe.f0_sfe
         fstar = np.full((len(zz),len(m)),fstar0)
         Mcut1 = 1e9*param.cosmo.h0/M178m_ov_M200c
         incr = 4.176470 #7.1/1.7 see Ross19
@@ -41,29 +41,29 @@ def fstar(zz,m,type_of_flux,param):
     trunc = (1 + (m/Mt)**gamma3)**gamma4    
     """
     if (type_of_flux=='xray'):
-        fstar0 = param.xray.f0_sfe
-        gamma1 = param.xray.g1_sfe
-        gamma2 = param.xray.g2_sfe
-        gamma3 = param.xray.g3_sfe
-        gamma4 = param.xray.g4_sfe
-        Mpivot = param.xray.Mp_sfe
-        Mtrunc = param.xray.Mt_sfe
+        fstar0 = param.sfe.f0_sfe
+        gamma1 = param.sfe.g1_sfe
+        gamma2 = param.sfe.g2_sfe
+        gamma3 = param.sfe.g3_sfe
+        gamma4 = param.sfe.g4_sfe
+        Mpivot = param.sfe.Mp_sfe
+        Mtrunc = param.sfe.Mt_sfe
     elif (type_of_flux=='lyal'):
-        fstar0 = param.lyal.f0_sfe
-        gamma1 = param.lyal.g1_sfe
-        gamma2 = param.lyal.g2_sfe
-        gamma3 = param.lyal.g3_sfe
-        gamma4 = param.lyal.g4_sfe
-        Mpivot = param.lyal.Mp_sfe
-        Mtrunc = param.lyal.Mt_sfe
+        fstar0 = param.sfe.f0_sfe
+        gamma1 = param.sfe.g1_sfe
+        gamma2 = param.sfe.g2_sfe
+        gamma3 = param.sfe.g3_sfe
+        gamma4 = param.sfe.g4_sfe
+        Mpivot = param.sfe.Mp_sfe
+        Mtrunc = param.sfe.Mt_sfe
     elif (type_of_flux.lower()=='lf'):
-        fstar0 = param.lf.f0_sfe*(1+zz)**param.lf.f0_sfe_nu
-        gamma1 = param.lf.g1_sfe*(1+zz)**param.lf.g1_sfe_nu
-        gamma2 = param.lf.g2_sfe*(1+zz)**param.lf.g2_sfe_nu
-        gamma3 = param.lf.g3_sfe*(1+zz)**param.lf.g3_sfe_nu
-        gamma4 = param.lf.g4_sfe*(1+zz)**param.lf.g4_sfe_nu
-        Mpivot = param.lf.Mp_sfe*(1+zz)**param.lf.Mp_sfe_nu
-        Mtrunc = param.lf.Mt_sfe*(1+zz)**param.lf.Mt_sfe_nu
+        fstar0 = param.sfe.f0_sfe*(1+zz)**param.sfe.f0_sfe_nu
+        gamma1 = param.sfe.g1_sfe*(1+zz)**param.sfe.g1_sfe_nu
+        gamma2 = param.sfe.g2_sfe*(1+zz)**param.sfe.g2_sfe_nu
+        gamma3 = param.sfe.g3_sfe*(1+zz)**param.sfe.g3_sfe_nu
+        gamma4 = param.sfe.g4_sfe*(1+zz)**param.sfe.g4_sfe_nu
+        Mpivot = param.sfe.Mp_sfe*(1+zz)**param.sfe.Mp_sfe_nu
+        Mtrunc = param.sfe.Mt_sfe*(1+zz)**param.sfe.Mt_sfe_nu
     else:
         print("ERROR: type of flux has to be either lf, xray or lyal!")
         exit()

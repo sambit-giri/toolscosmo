@@ -15,8 +15,9 @@ from .param import par
 
 try:
     from evstats import evs
+    evstats_available = True
 except:
-    print('To use, extreme value statistics (EVS), install evstats package found at https://github.com/christopherlovell/evstats')
+    evstats_available = False
 
 def evs_hypersurface_pdf(param=None, V=33510.321, z=0.0, mmin=12, mmax=18):
     """
@@ -34,6 +35,8 @@ def evs_hypersurface_pdf(param=None, V=33510.321, z=0.0, mmin=12, mmax=18):
     phi:
 
     """
+    if not evstats_available:
+        raise ImportError("evstats package is required for extreme value statistics calculations. Please install evstats package found at https://github.com/christopherlovell/evstats.")
     mf = hmf_param(param=param, Mmin=mmin, Mmax=mmax)
     if z>0.0:
         mf.update(z=z)
@@ -63,6 +66,8 @@ def evs_bin_pdf(param=None, zmin=0., zmax=0.1, dz=0.01, mmin=12, mmax=18, dm = 0
     ln10m_range: corresponding mass values for PDF (log10 (h^{-1} M_{\sol}) )
     
     """
+    if not evstats_available:
+        raise ImportError("evstats package is required for extreme value statistics calculations. Please install evstats package found at https://github.com/christopherlovell/evstats.")
     mf = hmf_param(param=param)
 
     N, f, F, ln10m_range = _evs_bin(mf=mf, zmin=zmin, zmax=zmax, dz=dz, mmin=mmin, mmax=mmax, dm=dm)

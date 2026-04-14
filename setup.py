@@ -10,9 +10,7 @@ from Cython.Build import cythonize
 import numpy as np
 import os
 
-# Read requirements from requirements.txt
-with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
+
 
 # Check if the Cython source file exists
 cython_files = ["src/toolscosmo/cython_ParkinsonColeHelly2008.pyx"]
@@ -33,17 +31,10 @@ extensions = [
 
 
 setup(
-    name='toolscosmo',
-    version='0.1.9',
-    author='Sambit Giri',
-    author_email='sambit.giri@su.se',
+    ext_modules=cythonize(extensions, language_level=3) if cython_files else [],
     packages=find_packages("src"),
     package_dir={"": "src"},
     package_data={'toolscosmo': ['input_data/*']},
-    install_requires=requirements,
     include_package_data=True,
-    # ext_modules=cythonize(extensions, language_level=3),
     include_dirs=[np.get_include()],
-    long_description=open('README.md').read(),
-    long_description_content_type='text/markdown',
 )

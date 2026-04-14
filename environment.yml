@@ -11,4 +11,4 @@ dependencies:
   - pytest
   - pip
   - pip:
-    - -r requirements.txt  # This ensures any additional pip packages are installed
+    - .  # This ensures the package and any additional pip dependencies are installed
