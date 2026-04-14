@@ -165,7 +165,10 @@ def growth_factor(z, param):
       - 'solveODE' / 'ode': direct numerical integration of the growth ODE.
         Valid for any dark energy model via Omega_DE().
       - 'Linder2005' / 'linder(2005)': fitting function (Linder 2005, PhRvD 72 043529).
-        Accurate for most dynamical dark energy models.
+        Accurate for most dynamical dark energy models; uses a single constant gamma.
+      - 'LinderCahn2007' / 'lc2007': scale-factor-dependent gamma (Linder & Cahn 2007,
+        Astropart.Phys. 28 481). Improves on Linder2005 for CPL with large wa.
+        Reduces to Linder2005 when wa=0.
       - 'CPT' / 'CarrollPressTurner1992': analytic fitting function (Carroll, Press &
         Turner 1992, ARA&A 30 499). Accurate (~1%) for flat LCDM only.
 
@@ -183,6 +186,8 @@ def growth_factor(z, param):
     solver = param.code.Dz_solver.lower()
     if solver in ['linder2005','linder(2005)','linder (2005)']:
         return growth_factor_Linder2005(z, param)
+    elif solver in ['lindercahn2007','linder&cahn2007','linder&cahn(2007)','linder-cahn2007','lc2007']:
+        return growth_factor_LinderCahn2007(z, param)
     elif solver in ['solveode','ode']:
         return growth_factor_solveODE(z, param)
     elif solver in ['cpt','carrollpressturner','carrollpressturner1992','cpt1992']:
@@ -308,6 +313,57 @@ def growth_factor_Linder2005(z, param):
         ln_Da = quad(lambda a: (Oa(a)**gamma-1)/a, 0.01, 1/(1+z[i]), epsrel=5e-3, limit=100)[0]
         Dz = np.append(Dz,np.exp(ln_Da))
     return Dz/D0/(1+z)
+
+def growth_factor_LinderCahn2007(z, param):
+    """
+    Growth factor fitting function from Linder & Cahn (2007,
+    Astropart.Phys. 28, 481), extending Linder (2005) to CPL dark energy
+    via a scale-factor-dependent growth index.
+
+    In Linder (2005) a single constant gamma is used, evaluated at a fixed
+    redshift.  Linder & Cahn (2007) improve this by evaluating gamma at each
+    scale factor using the instantaneous equation-of-state w(a):
+
+        gamma(a) = 0.55 + 0.05*(1 + w(a))   for w(a) >= -1
+                   0.55 + 0.02*(1 + w(a))   for w(a) <  -1
+
+    For CPL,  w(a) = w0 + wa*(1-a),  so gamma(a) varies across the integral.
+    The growth factor is:
+
+        D(z) = 1/(1+z) * exp[ integral_a0^a  (Omega_m(a')^gamma(a') - 1)/a' da' ]
+
+    normalised to D(z=0). Reduces to growth_factor_Linder2005 when wa=0 (i.e.
+    constant w), because gamma(a) becomes constant.
+
+    Parameters
+    ----------
+    z : array_like
+        Redshift(s).
+    param : Bunch
+        Cosmological parameter object.
+
+    Returns
+    -------
+    D(z)/D(0) : ndarray
+    """
+    Om = param.cosmo.Om
+    H0 = hubble(0, param)
+    Ha = lambda a: hubble(1/a - 1, param)
+    Oa = lambda a: Om * a**(-3) / (Ha(a) / H0)**2
+
+    def gamma(a):
+        w = w_DE(1/a - 1, param)
+        return 0.55 + 0.05*(1 + w) if w >= -1 else 0.55 + 0.02*(1 + w)
+
+    D0 = np.exp(quad(lambda a: (Oa(a)**gamma(a) - 1)/a, 0.01, 1,
+                     epsrel=5e-3, limit=100)[0])
+    Dz = np.array([])
+    for i in range(len(z)):
+        ln_Da = quad(lambda a: (Oa(a)**gamma(a) - 1)/a, 0.01, 1/(1+z[i]),
+                     epsrel=5e-3, limit=100)[0]
+        Dz = np.append(Dz, np.exp(ln_Da))
+    return Dz / D0 / (1 + z)
+
 
 def growth_factor_CPT(z, param):
     """
