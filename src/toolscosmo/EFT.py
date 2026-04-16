@@ -8,10 +8,30 @@ from functools import lru_cache
 import pandas as pd
 import os, sys
 from tqdm import tqdm
+from abc import ABC, abstractmethod
 
-from .cosmo import growth_factor, get_Plin
+from .cosmo import growth_factor, get_Plin, hubble
 from .generate_ic import *
-import tools21cm as t2c
+
+try:
+    import tools21cm as t2c
+    _TOOLS21CM_AVAILABLE = True
+except ImportError:
+    t2c = None
+    _TOOLS21CM_AVAILABLE = False
+
+__all__ = [
+    'EFTBase',
+    'EFTmodel',
+    'EFTformalism_Anastasiou2024',
+    'EFTformalism_Qin2022',
+    'D',
+    'P_linear_bias',
+    'linear_bias_21',
+    'compute_EPT_delta',
+    'compute_21cm_EFT_tracer',
+    'compute_tidal_field',
+]
 
 def D(z, par):
   '''
@@ -33,8 +53,13 @@ def P_linear_bias(z, par, b, **kwargs):
 
 def linear_bias_21(z, par):
   '''
-  Linear bias for 21-cm 
+  Linear bias for 21-cm
   '''
+  if not _TOOLS21CM_AVAILABLE:
+    raise ImportError(
+      "tools21cm is required for linear_bias_21. "
+      "Install it with: pip install tools21cm"
+    )
   t2c.set_hubble_h(par.cosmo.h0)
   t2c.set_ns(par.cosmo.ns)
   t2c.set_omega_baryon(par.cosmo.Ob)
@@ -43,8 +68,8 @@ def linear_bias_21(z, par):
   b21_lin = t2c.mean_dt(z)
   return b21_lin
 
-def compute_EPT_delta(param, grid_size, box_size, random_seed=42, 
-                      order=3, MAS='CIC', anti_aliasing=True, 
+def compute_EPT_delta(param, grid_size, box_size, z=0.0, random_seed=42,
+                      order=3, MAS='CIC', anti_aliasing=True,
                       deconvolve=True, cs=1.0, verbose=True):
     """
     Compute the EFT-of-LSS density field with customizable MAS, anti-aliasing, deconvolution, and counterterms.
@@ -82,12 +107,12 @@ def compute_EPT_delta(param, grid_size, box_size, random_seed=42,
     gen_field = generate_gaussian_random_field(
         grid_size, box_size, param=param, random_seed=random_seed, verbose=verbose
     )
-    delta_k = fftn(gen_field['delta_lin'])  # Linear delta in Fourier space
+    delta_k = rfftn(gen_field['delta_lin'])  # Linear delta in Fourier space (rFFT)
 
     # --- Step 2: Compute LPT displacements ---
     if verbose: print("Computing LPT displacements...")
     grad_kernel, k_squared = create_gradient_kernel_rfft3(grid_size, box_size)
-    a = 1.0  # Scale factor (a = 1 for z = 0)
+    a = 1.0 / (1.0 + z)
 
     # 1LPT (Zel'dovich)
     D1 = D1_growth_factor(a, param)
@@ -100,8 +125,9 @@ def compute_EPT_delta(param, grid_size, box_size, random_seed=42,
 
     # 3LPT
     if order >= 3:
-        D3 = D3_growth_factor(a, param)
-        disp_x3, disp_y3, disp_z3 = third_order_lpt(delta_k, D3, grad_kernel, k_squared, 1)
+        D3a = D3a_growth_factor(a, param)
+        D3b = D3b_growth_factor(a, param)
+        disp_x3, disp_y3, disp_z3 = third_order_lpt(delta_k, D3a, D3b, grad_kernel, k_squared, 1)
 
     # --- Step 3: Move particles ---
     if verbose: print("Computing total displacement...")
@@ -150,9 +176,9 @@ def compute_EPT_delta(param, grid_size, box_size, random_seed=42,
         )
         k2 = kx**2 + ky**2 + kz**2
         alpha = -cs * k2 / (1 + k2)  # Counterterm kernel
-        delta_k = fftn(delta_EPT)
+        delta_k = rfftn(delta_EPT)
         delta_k *= (1 + alpha)
-        delta_EPT = ifftn(delta_k).real
+        delta_EPT = irfftn(delta_k, s=(grid_size, grid_size, grid_size)).real
 
     return delta_EPT
 
@@ -201,7 +227,7 @@ def compute_21cm_EFT_tracer(param, grid_size, box_size, z,
     """
     # --- Step 1: Generate LPT density field ---
     delta_EPT = compute_EPT_delta(
-        param=param, grid_size=grid_size, box_size=box_size,
+        param=param, grid_size=grid_size, box_size=box_size, z=z,
         random_seed=random_seed, order=order_lpt, MAS=MAS,
         anti_aliasing=anti_aliasing, deconvolve=deconvolve, cs=cs, verbose=verbose
     )
@@ -213,39 +239,34 @@ def compute_21cm_EFT_tracer(param, grid_size, box_size, z,
 
     # Second-order terms (b2 and bs)
     delta_2 = delta_1**2 - np.mean(delta_1**2)
-    s_ij = compute_tidal_field(delta_1, box_size)  # Tidal field (see helper below)
-    s2 = np.sum(s_ij**2, axis=0) - np.mean(np.sum(s_ij**2, axis=0))
+    s_ij = compute_tidal_field(delta_1, box_size)  # shape (3, 3, N, N, N)
+    s2 = np.sum(s_ij**2, axis=(0, 1)) - np.mean(np.sum(s_ij**2, axis=(0, 1)))
 
     # Combine bias terms
     delta_bias = b1 * delta_1 + 0.5 * b2 * delta_2 + bs * s2
 
     # --- Step 3: Add redshift-space distortions (RSD) ---
     if verbose: print("Adding RSD...")
-    # Compute velocity field (from linear theory)
-    vx, vy, vz = compute_velocity_field(delta_1, box_size, param, z)
+    kx, ky, kz_r = np.meshgrid(
+        2*np.pi * np.fft.fftfreq(grid_size, d=box_size/grid_size),
+        2*np.pi * np.fft.fftfreq(grid_size, d=box_size/grid_size),
+        2*np.pi * np.fft.rfftfreq(grid_size, d=box_size/grid_size),
+        indexing='ij'
+    )
+    k2 = kx**2 + ky**2 + kz_r**2
+    k2[0, 0, 0] = 1.0  # Avoid division by zero
 
     # Apply Kaiser effect (large-scale RSD)
     if beta != 0:
-        kx, ky, kz = np.meshgrid(
-            2*np.pi * fftfreq(grid_size, d=box_size/grid_size),
-            2*np.pi * fftfreq(grid_size, d=box_size/grid_size),
-            2*np.pi * rfftfreq(grid_size, d=box_size/grid_size),
-            indexing='ij'
-        )
-        k2 = kx**2 + ky**2 + kz**2
-        k2[0, 0, 0] = 1.0  # Avoid division by zero
-        delta_k = fftn(delta_bias)
-        delta_k *= (1 + beta * kz**2 / k2)  # Kaiser formula
-        delta_bias = ifftn(delta_k).real
+        delta_k = np.fft.rfftn(delta_bias)
+        delta_k *= (1 + beta * kz_r**2 / k2)  # Kaiser formula
+        delta_bias = np.fft.irfftn(delta_k, s=(grid_size, grid_size, grid_size)).real
 
     # Apply Fingers-of-God damping (small-scale RSD)
     if sigma_v > 0:
-        kz_grid = 2*np.pi * rfftfreq(grid_size, d=box_size/grid_size)
-        kz_mesh = np.zeros((grid_size, grid_size, grid_size//2 + 1))
-        kz_mesh[:] = kz_grid
-        damping = np.exp(-0.5 * (sigma_v * kz_mesh)**2)
-        delta_k = fftn(delta_bias) * damping
-        delta_bias = ifftn(delta_k).real
+        damping = np.exp(-0.5 * (sigma_v * kz_r)**2)
+        delta_k = np.fft.rfftn(delta_bias) * damping
+        delta_bias = np.fft.irfftn(delta_k, s=(grid_size, grid_size, grid_size)).real
 
     # --- Step 4: 21-cm specific effects ---
     # (Placeholder for X-ray heating, Ly-alpha coupling, etc.)
@@ -255,11 +276,11 @@ def compute_21cm_EFT_tracer(param, grid_size, box_size, z,
 
 def compute_tidal_field(delta, box_size):
     """Compute tidal tensor s_ij = (∂i∂j/∇^2 - δ_ij/3) delta."""
-    delta_k = fftn(delta)
+    delta_k = np.fft.rfftn(delta)
     kx, ky, kz = np.meshgrid(
-        2*np.pi * fftfreq(delta.shape[0], d=box_size/delta.shape[0]),
-        2*np.pi * fftfreq(delta.shape[1], d=box_size/delta.shape[1]),
-        2*np.pi * rfftfreq(delta.shape[2], d=box_size/delta.shape[2]),
+        2*np.pi * np.fft.fftfreq(delta.shape[0], d=box_size/delta.shape[0]),
+        2*np.pi * np.fft.fftfreq(delta.shape[1], d=box_size/delta.shape[1]),
+        2*np.pi * np.fft.rfftfreq(delta.shape[2], d=box_size/delta.shape[2]),
         indexing='ij'
     )
     k2 = kx**2 + ky**2 + kz**2
@@ -269,7 +290,7 @@ def compute_tidal_field(delta, box_size):
     for ki in [kx, ky, kz]:
         for kj in [kx, ky, kz]:
             s_k = (ki * kj / k2 - (ki == kj)/3) * delta_k
-            s_ij.append(ifftn(s_k).real)
+            s_ij.append(np.fft.irfftn(s_k, s=delta.shape).real)
     return np.array(s_ij).reshape(3, 3, *delta.shape)
 
 class EFTformalism_Anastasiou2024:
@@ -2250,13 +2271,686 @@ class EFTformalism_Qin2022(EFTformalism_Anastasiou2024):
                nBW=nBW,  # Number of Breit-Wigner terms
                verbose=verbose,
                save_folder=save_folder,
-               ) 
-    
+               )
+
   def model_P_tracer(self, k_sample, b1, b2, bG2, R2, redshift, plin=None):
     bGamma3 = 0.0
     Pshot = 0.0
     cs2 = 0.0
     return self._model_P_tracer(k_sample, b1, b2, bG2, bGamma3, R2, Pshot, cs2, redshift, plin=plin)
+
+
+# ---------------------------------------------------------------------------
+# Grid-based EFT classes (Issue #6)
+# ---------------------------------------------------------------------------
+
+class EFTBase(ABC):
+    """
+    Abstract base class for grid-based EFT (Effective Field Theory) models.
+
+    Provides shared infrastructure: cosmological parameter storage, linear
+    power spectrum access, growth factor, k-grid setup, MAS window function,
+    and EFT counterterm helpers.
+
+    Subclasses must implement
+    -------------------------
+    compute_bias_fields(delta_lin)
+    model_P_tracer(k, bias_params, z)
+    """
+
+    def __init__(self, param, grid_size=None, box_size=None, MAS='CIC', verbose=True):
+        """
+        Parameters
+        ----------
+        param : object
+            Cosmological parameter object (as used throughout toolscosmo).
+        grid_size : int, optional
+            Number of grid cells per dimension.
+        box_size : float, optional
+            Physical box size in Mpc/h.
+        MAS : str, optional
+            Mass assignment scheme for deconvolution: 'NGP', 'CIC', 'TSC', 'PCS'.
+        verbose : bool
+            Print progress messages.
+        """
+        self.param = param
+        self.grid_size = grid_size
+        self.box_size = box_size
+        self.MAS = MAS
+        self.verbose = verbose
+        self._plin_cache = None
+
+    def _get_plin(self):
+        """Return cached linear power spectrum dict with keys 'k' and 'P'."""
+        if self._plin_cache is None:
+            self._plin_cache = get_Plin(self.param)
+        return self._plin_cache
+
+    def _get_D(self, z):
+        """Growth factor D(z), normalised so that D(z→0) = 1. Handles scalar z."""
+        return float(growth_factor(np.atleast_1d(float(z)), self.param)[0])
+
+    def _get_f(self, z):
+        """Logarithmic growth rate f(z) = d ln D / d ln a. Handles scalar z."""
+        return float(growth_rate(np.atleast_1d(float(z)), self.param)[0])
+
+    def _setup_k_grid(self):
+        """
+        Build rFFT k-grid arrays for (grid_size, box_size).
+
+        Returns
+        -------
+        KX, KY, KZ : np.ndarray, shape (N, N, N//2+1)
+        K2         : np.ndarray, shape (N, N, N//2+1); K2[0,0,0] = 1.
+        """
+        N, L = self.grid_size, self.box_size
+        kF = 2 * np.pi / L
+        kx = np.fft.fftfreq(N) * N * kF
+        ky = np.fft.fftfreq(N) * N * kF
+        kz = np.fft.rfftfreq(N) * N * kF
+        KX, KY, KZ = np.meshgrid(kx, ky, kz, indexing='ij')
+        K2 = KX**2 + KY**2 + KZ**2
+        K2[0, 0, 0] = 1.0
+        return KX, KY, KZ, K2
+
+    def _eft_counterterm(self, delta_k, R2, K2):
+        """
+        EFT counterterm −R² ∇²δ in Fourier space.
+
+        Returns +R² K² delta_k (the sign flip from ∇²→−k² is already
+        absorbed, so this is the *additive* contribution to delta_k).
+        """
+        return R2 * K2 * delta_k
+
+    def _mas_window(self, K, MAS=None):
+        """
+        Scalar MAS window function W(k) = sinc(k Δx/2)^p.
+
+        Parameters
+        ----------
+        K : np.ndarray
+            Wavenumber magnitudes (h/Mpc).
+        MAS : str, optional
+            Override self.MAS.
+
+        Returns
+        -------
+        W : np.ndarray, same shape as K.
+        """
+        scheme = (MAS or self.MAS).upper()
+        orders = {'NGP': 1, 'CIC': 2, 'TSC': 3, 'PCS': 4}
+        p = orders.get(scheme, 2)
+        dx = self.box_size / self.grid_size
+        x = K * dx / 2.0
+        return np.where(x == 0, 1.0, (np.sin(x) / x) ** p)
+
+    def _T_bar_21(self, z):
+        """
+        Mean 21-cm brightness temperature T̄_b(z) in mK.
+
+        Uses the approximation (Furlanetto et al. 2006):
+            T̄_b(z) ≈ 189 h (1+z)² [H₀/H(z)] Ω_HI  mK
+        with fiducial Ω_HI = 6.25 × 10⁻⁴ (Crighton et al. 2015).
+        """
+        h   = self.param.cosmo.h0
+        H0  = 100.0 * h          # km/s/Mpc
+        Hz  = hubble(z, self.param)
+        Omega_HI = 6.25e-4
+        return 189.0 * h * (1 + z)**2 * (H0 / Hz) * Omega_HI
+
+    @abstractmethod
+    def compute_bias_fields(self, delta_lin):
+        """
+        Evaluate all bias operator fields on the input 3-D density mesh.
+
+        Parameters
+        ----------
+        delta_lin : np.ndarray, shape (N, N, N)
+            Linear density contrast field.
+
+        Returns
+        -------
+        dict
+            Dictionary of bias operator arrays on the same grid.
+        """
+
+    @abstractmethod
+    def model_P_tracer(self, k, bias_params, z):
+        """
+        Compute the (1-loop) power spectrum of the biased tracer.
+
+        Parameters
+        ----------
+        k : array-like
+            Wavenumbers in h/Mpc.
+        bias_params : dict
+            Bias parameters (keys depend on the subclass).
+        z : float
+            Redshift.
+
+        Returns
+        -------
+        P : np.ndarray
+            Power spectrum in (Mpc/h)³.
+        """
+
+
+class EFTmodel(EFTBase):
+    """
+    EFT model for the 21-cm brightness temperature power spectrum.
+
+    Implements the Lagrangian bias expansion formalism described in:
+        Qin et al. 2022, Phys. Rev. D 106, 123506 (arXiv:2205.06270).
+
+    Bias basis — 5 Lagrangian operators
+    ------------------------------------
+    Operator             Parameter   Description
+    1                    —           mean background
+    δₗ                   b₁          linear density
+    δₗ² − ⟨δₗ²⟩         b₂          quadratic density
+    sₗ² − ⟨sₗ²⟩         bₛ          tidal-field squared
+    ∇²δₗ                 b∇          derivative / bubble-scale bias
+
+    EFT counterterm:  −bₑ k² δ  (renormalises UV sensitivity).
+
+    Parameters
+    ----------
+    param : object
+        Cosmological parameters.
+    grid_size : int, optional
+        Grid resolution (required for compute_bias_fields).
+    box_size : float, optional
+        Box size in Mpc/h (required for compute_bias_fields).
+    MAS : str, optional
+        Mass assignment scheme. Default: 'CIC'.
+    n_q : int, optional
+        Number of log-spaced q points for loop integrals. Default: 256.
+    n_mu : int, optional
+        Number of μ points for loop integrals. Default: 128.
+    verbose : bool, optional
+        Print progress messages. Default: True.
+    """
+
+    def __init__(self, param, grid_size=None, box_size=None, MAS='CIC',
+                 n_q=256, n_mu=128, q_UV=2.0, verbose=True):
+        super().__init__(param, grid_size=grid_size, box_size=box_size,
+                         MAS=MAS, verbose=verbose)
+        self.n_q = n_q
+        self.n_mu = n_mu
+        self.q_UV = q_UV   # UV cutoff for P13 (h/Mpc); P22 uses full k range
+        self._loop_cache = {}
+
+    # ------------------------------------------------------------------
+    # Grid-based bias operators
+    # ------------------------------------------------------------------
+
+    def compute_bias_fields(self, delta_lin):
+        """
+        Compute the 4 independent Lagrangian bias operator fields on a 3-D mesh.
+
+        Parameters
+        ----------
+        delta_lin : np.ndarray, shape (N, N, N)
+            Zero-mean linear density contrast.
+
+        Returns
+        -------
+        dict with keys:
+            'delta'       : δₗ
+            'delta2'      : δₗ² − ⟨δₗ²⟩
+            's2'          : sₗ² − ⟨sₗ²⟩  (tidal field squared)
+            'nabla2delta' : ∇²δₗ
+        """
+        if self.box_size is None:
+            raise ValueError("box_size must be set before calling compute_bias_fields.")
+        N = delta_lin.shape[0]
+        L = self.box_size
+        kF = 2 * np.pi / L
+
+        kx = np.fft.fftfreq(N) * N * kF
+        ky = np.fft.fftfreq(N) * N * kF
+        kz = np.fft.rfftfreq(N) * N * kF
+        KX, KY, KZ = np.meshgrid(kx, ky, kz, indexing='ij')
+        K2 = KX**2 + KY**2 + KZ**2
+        K2[0, 0, 0] = 1.0
+
+        delta_k = np.fft.rfftn(delta_lin)
+
+        # O2: δₗ² − ⟨δₗ²⟩
+        delta2 = delta_lin**2 - np.mean(delta_lin**2)
+
+        # O3: sₗ² − ⟨sₗ²⟩
+        # s_ij(k) = (k_i k_j / k² − δ_ij/3) δ(k)
+        axes = [KX, KY, KZ]
+        s2 = np.zeros(delta_lin.shape, dtype=np.float64)
+        for i in range(3):
+            for j in range(3):
+                sij_k = (axes[i] * axes[j] / K2 - float(i == j) / 3.0) * delta_k
+                s2 += np.fft.irfftn(sij_k, s=delta_lin.shape) ** 2
+        s2 -= np.mean(s2)
+
+        # O4: ∇²δₗ  →  −k² δ(k) in Fourier space
+        nabla2delta = np.fft.irfftn(-K2 * delta_k, s=delta_lin.shape)
+
+        return {
+            'delta':       delta_lin.copy(),
+            'delta2':      delta2,
+            's2':          s2,
+            'nabla2delta': nabla2delta,
+        }
+
+    # ------------------------------------------------------------------
+    # Loop integrals
+    # ------------------------------------------------------------------
+
+    def _compute_loop_integrals(self, k_arr, z):
+        """
+        Numerically compute 1-loop power spectrum integrals at redshift z.
+
+        Integrals computed for each k in k_arr:
+
+            P22(k)    = 2 ∫ d³q/(2π)³  F₂²(q,k−q) P(q) P(|k−q|)
+            P13(k)    — Makino et al. 1992 angle-averaged kernel (q ≤ q_UV)
+            I_F2(k)   = ∫ d³q/(2π)³  F₂(q,k−q)    P(q) P(|k−q|)
+            I_G2(k)   = ∫ d³q/(2π)³  G₂(q,k−q)    P(q) P(|k−q|)
+            I_1(k)    = ∫ d³q/(2π)³               P(q) P(|k−q|)
+            I_G2sq(k) = ∫ d³q/(2π)³  G₂²(q,k−q)  P(q) P(|k−q|)
+
+        Numerical method for P22, I_*
+        --------------------------------
+        Substituting x = |k−q| (so μ = (k²+q²−x²)/(2kq)) converts the
+        double integral over (q, μ) into a 1-D integral over q with an inner
+        1-D integral over x ∈ [|k−q|, k+q].  Parameterising the inner range
+        via t ∈ [0, 1]:  x = |k−q| + 2 min(k,q) t eliminates boundary
+        truncation artefacts.
+
+        SPT kernels in terms of magnitudes k, q, x = |k−q|
+        -------------------------------------------------------
+        Δ ≡ k₁·k₂ = (k² − q² − x²) / 2
+        F₂ = 5/7 + Δ/2 (1/q² + 1/x²) + 2/7 Δ²/(q²x²)
+        G₂ = Δ²/(q²x²) − 1/3
+
+        Results are cached by (k_arr, z).
+        """
+        cache_key = (tuple(np.round(k_arr, 8)), round(float(z), 6))
+        if cache_key in self._loop_cache:
+            return self._loop_cache[cache_key]
+
+        plin_data = self._get_plin()
+        Dz = self._get_D(z)
+        Plin = interp1d(plin_data['k'], plin_data['P'] * Dz**2,
+                        kind='cubic', bounds_error=False, fill_value=0.0)
+
+        q_min    = float(plin_data['k'].min())
+        q_max    = float(plin_data['k'].max())
+        # P13 uses a UV cutoff to keep the result finite; the residual
+        # UV sensitivity is absorbed into the EFT counterterm (be parameter).
+        q_max_13 = min(q_max, float(self.q_UV)) if self.q_UV is not None else q_max
+
+        # Outer q grid (log-spaced) shared by all integrals
+        q_arr   = np.logspace(np.log10(q_min), np.log10(q_max),    self.n_q)
+        q_arr13 = np.logspace(np.log10(q_min), np.log10(q_max_13), self.n_q)
+        # Inner t grid in [0, 1] for the x = |k−q| + 2 min(k,q) t substitution
+        t_arr   = np.linspace(0.0, 1.0, self.n_mu)
+
+        Pq    = Plin(q_arr)
+        Pq13  = Plin(q_arr13)
+
+        keys = ['P22', 'P13', 'I_F2', 'I_G2', 'I_1', 'I_G2sq']
+        results = {key: np.zeros(len(k_arr)) for key in keys}
+
+        for ik, k in enumerate(k_arr):
+            if self.verbose and len(k_arr) > 5 and ik % max(1, len(k_arr) // 5) == 0:
+                print(f"  Loop integrals: {ik + 1}/{len(k_arr)}", flush=True)
+
+            # ----------------------------------------------------------
+            # P22 / bias-cross integrals via x = |k−q| substitution
+            # ----------------------------------------------------------
+            # Inner x range: x ∈ [|k−q|, k+q].  Parameterise:
+            #   x(q, t) = |k−q| + 2 min(k,q) t,  t ∈ [0, 1]
+            #   dx = 2 min(k,q) dt
+            # Full 3-D integral:
+            #   ∫ d³q/(2π)³ h P(q) P(x)
+            #   = ∫ d(lnq) q²P(q)/(4π²k) × ∫_{x_lo}^{x_hi} x P(x) h dx
+            #   ≈ ∫ d(lnq) q²P(q)/(4π²k) × [2 min(k,q)] × trapz_t(x P(x) h, t)
+
+            q_2d   = q_arr[:, None]           # (n_q, 1)
+            t_2d   = t_arr[None, :]           # (1, n_mu)
+            x_lo   = np.abs(k - q_arr)        # (n_q,)
+            min_kq = np.minimum(k, q_arr)     # (n_q,)
+
+            x_2d   = x_lo[:, None] + 2.0 * min_kq[:, None] * t_2d  # (n_q, n_mu)
+            x_2d   = np.maximum(x_2d, 1e-10)
+            Px_2d  = Plin(x_2d)               # (n_q, n_mu)
+
+            # SPT kernels via Δ = (k² − q² − x²)/2
+            Delta   = (k**2 - q_2d**2 - x_2d**2) * 0.5
+            q2_2d   = np.maximum(q_2d**2, 1e-60)
+            x2_2d   = np.maximum(x_2d**2, 1e-60)
+
+            inv_q2x2 = 1.0 / (q2_2d * x2_2d)
+            F2 = (5.0/7.0
+                  + 0.5 * Delta * (1.0/q2_2d + 1.0/x2_2d)
+                  + 2.0/7.0 * Delta**2 * inv_q2x2)
+            G2 = Delta**2 * inv_q2x2 - 1.0/3.0
+
+            # Inner integral over t: ∫_0^1 x P(x) h dt × 2 min(k,q)
+            wx = x_2d * Px_2d                                         # (n_q, n_mu)
+            dt_factor = (2.0 * min_kq)                                # (n_q,)
+
+            I_F2sq_  = np.trapz(wx * F2**2, t_arr, axis=1) * dt_factor
+            I_F2_    = np.trapz(wx * F2,    t_arr, axis=1) * dt_factor
+            I_G2_    = np.trapz(wx * G2,    t_arr, axis=1) * dt_factor
+            I_1_     = np.trapz(wx,          t_arr, axis=1) * dt_factor
+            I_G2sq_  = np.trapz(wx * G2**2, t_arr, axis=1) * dt_factor
+
+            # Outer q integral: (4π²k)⁻¹ ∫ d(lnq) q² P(q) × I_inner
+            norm_out = 1.0 / (4.0 * np.pi**2 * k)
+            w_out    = q_arr**2 * Pq                                   # (n_q,)
+            lnq      = np.log(q_arr)
+
+            results['P22'][ik]    = 2.0 * norm_out * np.trapz(w_out * I_F2sq_,  lnq)
+            results['I_F2'][ik]   =       norm_out * np.trapz(w_out * I_F2_,    lnq)
+            results['I_G2'][ik]   =       norm_out * np.trapz(w_out * I_G2_,    lnq)
+            results['I_1'][ik]    =       norm_out * np.trapz(w_out * I_1_,     lnq)
+            results['I_G2sq'][ik] =       norm_out * np.trapz(w_out * I_G2sq_,  lnq)
+
+            # ----------------------------------------------------------
+            # P13 via Makino et al. 1992 angle-averaged kernel (q ≤ q_UV)
+            # ----------------------------------------------------------
+            # P13(k) = (3/π²) P_lin(k) ∫₀^{q_UV} d(lnq) q³ P_lin(q) g₁₃(q/k)
+            # g₁₃(r) = [12/r² − 158 + 100r² − 42r⁴
+            #            + (3/r³)(1−r²)³(7r²+2) ln|(1+r)/(1−r)|] / 504
+            r13   = q_arr13 / k
+            r2_13 = r13**2
+            with np.errstate(divide='ignore', invalid='ignore'):
+                log_term13 = np.where(
+                    np.abs(r13 - 1) > 1e-3,
+                    np.log(np.abs((1.0 + r13)
+                                  / np.maximum(np.abs(1.0 - r13), 1e-200))),
+                    0.0,
+                )
+            g13 = (12.0/r2_13 - 158.0 + 100.0*r2_13 - 42.0*r2_13**2
+                   + 3.0*(r2_13 - 1.0)**3 * (7.0*r2_13 + 2.0)
+                   / (r13**3 + 1e-200) * log_term13) / 504.0
+
+            Plin_k = float(Plin(k))
+            results['P13'][ik] = (3.0 / np.pi**2) * Plin_k * np.trapz(
+                q_arr13**3 * Pq13 * g13, np.log(q_arr13)
+            )
+
+        self._loop_cache[cache_key] = results
+        return results
+
+    # ------------------------------------------------------------------
+    # Public power spectrum methods
+    # ------------------------------------------------------------------
+
+    def P_1loop(self, k, z):
+        """
+        Standalone 1-loop matter power spectrum P_mm(k, z).
+
+        P_mm(k) = P_lin(k, z) + P22(k, z) + P13(k, z)
+
+        Parameters
+        ----------
+        k : array-like
+        z : float
+
+        Returns
+        -------
+        dict with keys 'k', 'P_lin', 'P22', 'P13', 'P_1loop'.
+        """
+        k = np.atleast_1d(np.asarray(k, dtype=float))
+        plin_data = self._get_plin()
+        Dz = self._get_D(z)
+        Plin_k = interp1d(plin_data['k'], plin_data['P'] * Dz**2,
+                          kind='cubic', bounds_error=False, fill_value=0.0)(k)
+        loops = self._compute_loop_integrals(k, z)
+        return {
+            'k':       k,
+            'P_lin':   Plin_k,
+            'P22':     loops['P22'],
+            'P13':     loops['P13'],
+            'P_1loop': Plin_k + loops['P22'] + loops['P13'],
+        }
+
+    def model_P_tracer(self, k, bias_params, z):
+        """
+        1-loop power spectrum of the Lagrangian-biased 21-cm tracer.
+
+        P(k) = b₁² P_mm(k)
+             + 2 b₁ b₂ I_F2(k)
+             + 2 (b₁ bₛ + b₂ bₛ) I_G2(k)
+             + b₂² I_1(k)
+             + bₛ² I_G2sq(k)
+             − 2 (b₁ b∇ + bₑ) k² P_lin(k)
+
+        Parameters
+        ----------
+        k : array-like
+            Wavenumbers in h/Mpc.
+        bias_params : dict
+            Keys (all optional except 'b1'):
+                'b1'    — linear bias (default 1)
+                'b2'    — quadratic bias (default 0)
+                'bs'    — tidal bias (default 0)
+                'bgrad' — derivative bias b∇ (default 0)
+                'be'    — EFT counterterm amplitude (default 0)
+        z : float
+            Redshift.
+
+        Returns
+        -------
+        P : np.ndarray  — tracer power spectrum in (Mpc/h)³.
+        """
+        k     = np.atleast_1d(np.asarray(k, dtype=float))
+        b1    = float(bias_params.get('b1',    1.0))
+        b2    = float(bias_params.get('b2',    0.0))
+        bs    = float(bias_params.get('bs',    0.0))
+        bgrad = float(bias_params.get('bgrad', 0.0))
+        be    = float(bias_params.get('be',    0.0))
+
+        plin_data = self._get_plin()
+        Dz = self._get_D(z)
+        Plin_k = interp1d(plin_data['k'], plin_data['P'] * Dz**2,
+                          kind='cubic', bounds_error=False, fill_value=0.0)(k)
+
+        loops  = self._compute_loop_integrals(k, z)
+        P_mm   = Plin_k + loops['P22'] + loops['P13']
+
+        P = (b1**2         * P_mm
+             + 2*b1*b2     * loops['I_F2']
+             + 2*(b1*bs + b2*bs) * loops['I_G2']
+             + b2**2        * loops['I_1']
+             + bs**2        * loops['I_G2sq']
+             - 2*(b1*bgrad + be) * k**2 * Plin_k)
+        return P
+
+    def model_P_tracer_rsd(self, k, mu, bias_params, z, fog_sigma=0.0):
+        """
+        Redshift-space tracer power spectrum P(k, μ) and Legendre multipoles.
+
+        Uses a Kaiser + Gaussian FoG model:
+            P_s(k,μ) = [(b₁ + f μ²)² P_mm(k) + bias loop terms]
+                       × exp(−k² μ² σᵥ²)
+
+        Parameters
+        ----------
+        k : array-like, shape (n_k,)
+            Wavenumbers in h/Mpc.
+        mu : array-like, shape (n_mu,)
+            Cosine of angle to the line-of-sight.
+        bias_params : dict
+            Same keys as model_P_tracer, plus optional 'fog_sigma'.
+        z : float
+            Redshift.
+        fog_sigma : float, optional
+            FoG velocity dispersion in Mpc/h (overrides bias_params key).
+
+        Returns
+        -------
+        dict with keys:
+            'k'      : 1-D array of wavenumbers
+            'mu'     : 1-D array of mu values
+            'Pk_mu'  : 2-D array (n_k, n_mu) — P(k, μ)
+            'P0'     : 1-D array (n_k) — monopole
+            'P2'     : 1-D array (n_k) — quadrupole
+            'P4'     : 1-D array (n_k) — hexadecapole
+        """
+        k  = np.atleast_1d(np.asarray(k,  dtype=float))
+        mu = np.atleast_1d(np.asarray(mu, dtype=float))
+
+        b1    = float(bias_params.get('b1',    1.0))
+        b2    = float(bias_params.get('b2',    0.0))
+        bs    = float(bias_params.get('bs',    0.0))
+        bgrad = float(bias_params.get('bgrad', 0.0))
+        be    = float(bias_params.get('be',    0.0))
+        sigma_v = fog_sigma or float(bias_params.get('fog_sigma', 0.0))
+
+        f = self._get_f(z)  # logarithmic growth rate d ln D / d ln a
+
+        plin_data = self._get_plin()
+        Dz = self._get_D(z)
+        Plin_k = interp1d(plin_data['k'], plin_data['P'] * Dz**2,
+                          kind='cubic', bounds_error=False, fill_value=0.0)(k)
+
+        loops = self._compute_loop_integrals(k, z)
+        P_mm  = Plin_k + loops['P22'] + loops['P13']
+
+        # Broadcast to (n_k, n_mu)
+        k_2d  = k[:, None]
+        mu_2d = mu[None, :]
+
+        # Kaiser factor (b₁ + f μ²)²
+        kaiser = (b1 + f * mu_2d**2)**2
+
+        # FoG damping
+        fog = np.exp(-(k_2d * mu_2d * sigma_v)**2) if sigma_v > 0.0 else 1.0
+
+        # Isotropic bias correction terms
+        P_iso = (2*b1*b2     * loops['I_F2']
+                 + 2*(b1*bs + b2*bs) * loops['I_G2']
+                 + b2**2      * loops['I_1']
+                 + bs**2      * loops['I_G2sq']
+                 - 2*(b1*bgrad + be) * k**2 * Plin_k)  # (n_k,)
+
+        Pk_mu = kaiser * P_mm[:, None] * fog + P_iso[:, None]  # (n_k, n_mu)
+
+        # Legendre multipoles: Pₗ(k) = (2ℓ+1)/2 ∫_{-1}^{1} P(k,μ) Lₗ(μ) dμ
+        L2 = (3*mu_2d**2 - 1) / 2.0
+        L4 = (35*mu_2d**4 - 30*mu_2d**2 + 3) / 8.0
+
+        P0 = 0.5 * np.trapz(Pk_mu,          mu, axis=1)
+        P2 = 2.5 * np.trapz(Pk_mu * L2,     mu, axis=1)
+        P4 = 4.5 * np.trapz(Pk_mu * L4,     mu, axis=1)
+
+        return {'k': k, 'mu': mu, 'Pk_mu': Pk_mu, 'P0': P0, 'P2': P2, 'P4': P4}
+
+    def fit_bias_params(self, k, Pk_measured, z,
+                        p0=None, params_to_fit=('b1', 'b2', 'bs'),
+                        method='Nelder-Mead', **minimize_kwargs):
+        """
+        Fit bias parameters to a measured power spectrum by minimising
+        chi² in log-space.
+
+        Parameters
+        ----------
+        k : array-like
+            Wavenumbers in h/Mpc.
+        Pk_measured : array-like
+            Measured power spectrum in (Mpc/h)³.
+        z : float
+            Redshift.
+        p0 : dict, optional
+            Initial guess. Keys must be a superset of params_to_fit.
+            Defaults: b1=1, others=0.
+        params_to_fit : tuple of str, optional
+            Subset of {'b1','b2','bs','bgrad','be'} to optimise.
+            Default: ('b1','b2','bs').
+        method : str, optional
+            scipy.optimize.minimize method. Default: 'Nelder-Mead'.
+        **minimize_kwargs
+            Forwarded to scipy.optimize.minimize (e.g. options={...}).
+
+        Returns
+        -------
+        fitted_params : dict
+            Full bias parameter dict (all 5 keys) with fitted values.
+        result : OptimizeResult
+            scipy minimisation result object.
+        """
+        k  = np.atleast_1d(np.asarray(k,           dtype=float))
+        Pk = np.atleast_1d(np.asarray(Pk_measured,  dtype=float))
+
+        _defaults = {'b1': 1.0, 'b2': 0.0, 'bs': 0.0, 'bgrad': 0.0, 'be': 0.0}
+        p0_dict   = {p: (_defaults[p] if p0 is None else p0.get(p, _defaults[p]))
+                     for p in params_to_fit}
+        p0_arr    = np.array([p0_dict[p] for p in params_to_fit])
+
+        mask   = Pk > 0
+        k_fit  = k[mask]
+        lnPk   = np.log(Pk[mask])
+
+        def _residual(x):
+            bp       = {**_defaults, **dict(zip(params_to_fit, x))}
+            Pk_model = self.model_P_tracer(k_fit, bp, z)
+            Pk_model = np.maximum(Pk_model, 1e-10)
+            return float(np.sum((np.log(Pk_model) - lnPk)**2))
+
+        result       = minimize(_residual, p0_arr, method=method, **minimize_kwargs)
+        fitted       = dict(zip(params_to_fit, result.x))
+        fitted_full  = {**_defaults, **fitted}
+        return fitted_full, result
+
+    def construct_tracer_field(self, bias_fields, bias_params, R2=0.0):
+        """
+        Construct the on-grid biased tracer field from pre-computed bias operators.
+
+        delta_tracer = b1*delta + b2*(delta²-<delta²>) + bs*(s²-<s²>)
+                       + bgrad*nabla²delta  [+ EFT counterterm if R2 > 0]
+
+        Parameters
+        ----------
+        bias_fields : dict
+            Output of compute_bias_fields: keys 'delta','delta2','s2','nabla2delta'.
+        bias_params : dict
+            Bias parameter dict (same keys as model_P_tracer).
+        R2 : float, optional
+            EFT counterterm scale R² (Mpc/h)². Adds −R² ∇²δ to the field.
+            Default: 0 (no counterterm).
+
+        Returns
+        -------
+        delta_tracer : np.ndarray, shape (N, N, N)
+            On-grid dimensionless tracer density contrast.
+        """
+        b1    = float(bias_params.get('b1',    1.0))
+        b2    = float(bias_params.get('b2',    0.0))
+        bs    = float(bias_params.get('bs',    0.0))
+        bgrad = float(bias_params.get('bgrad', 0.0))
+
+        delta_tracer = (b1    * bias_fields['delta']
+                      + b2    * bias_fields['delta2']
+                      + bs    * bias_fields['s2']
+                      + bgrad * bias_fields['nabla2delta'])
+
+        if R2 > 0.0 and self.box_size is not None:
+            N, L = delta_tracer.shape[0], self.box_size
+            kF = 2 * np.pi / L
+            kx = np.fft.fftfreq(N) * N * kF
+            ky = np.fft.fftfreq(N) * N * kF
+            kz = np.fft.rfftfreq(N) * N * kF
+            KX, KY, KZ = np.meshgrid(kx, ky, kz, indexing='ij')
+            K2 = KX**2 + KY**2 + KZ**2
+            K2[0, 0, 0] = 1.0
+            delta_k = np.fft.rfftn(bias_fields['delta'])
+            ct = np.fft.irfftn(self._eft_counterterm(delta_k, R2, K2),
+                               s=delta_tracer.shape)
+            delta_tracer = delta_tracer + ct
+
+        return delta_tracer
+
 
 if __name__ == "__main__":
   import toolscosmo

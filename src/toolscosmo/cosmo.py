@@ -307,6 +307,7 @@ def growth_factor_Linder2005(z, param):
     wz = lambda z: w_DE(z, param)
     w1 = wz(1)
     gamma = 0.55+0.05*(1+w1) if w1>=-1 else 0.55+0.02*(1+w1)
+    z = np.atleast_1d(z)
     D0 = np.exp(quad(lambda a: (Oa(a)**gamma-1)/a, 0.01, 1, epsrel=5e-3, limit=100)[0])
     Dz = np.array([])
     for i in range(len(z)):
@@ -355,6 +356,7 @@ def growth_factor_LinderCahn2007(z, param):
         w = w_DE(1/a - 1, param)
         return 0.55 + 0.05*(1 + w) if w >= -1 else 0.55 + 0.02*(1 + w)
 
+    z = np.atleast_1d(z)
     D0 = np.exp(quad(lambda a: (Oa(a)**gamma(a) - 1)/a, 0.01, 1,
                      epsrel=5e-3, limit=100)[0])
     Dz = np.array([])
