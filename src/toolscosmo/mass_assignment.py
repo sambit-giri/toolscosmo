@@ -180,3 +180,106 @@ def _assign_pylians(mesh, box_size, positions, scheme, verbose):
             "pylians (MAS_library) is not installed. "
             "Install it with: pip install pylians3  or use backend='numpy'."
         ) from e
+
+
+# ---------------------------------------------------------------------------
+# MAS window helpers for deconvolution / anti-aliasing
+# ---------------------------------------------------------------------------
+
+_MAS_ORDER = {'NGP': 1, 'CIC': 2, 'TSC': 3, 'PCS': 4}
+
+
+def _mas_window_3d(N, scheme):
+    """
+    3-D separable MAS window function in rFFT layout, shape (N, N, N//2+1).
+
+    W(kx, ky, kz) = prod_i  sinc(f_i)^p
+    where f_i = np.fft.fftfreq(N) (full) or rfftfreq (z-axis),
+    and p is the MAS order (NGP=1, CIC=2, TSC=3, PCS=4).
+
+    np.sinc(x) = sin(pi x) / (pi x), so sinc(fftfreq) reproduces the
+    standard MAS kernel W(k) = [sin(k dx/2) / (k dx/2)]^p correctly.
+    """
+    p  = _MAS_ORDER[scheme.upper()]
+    Wx = np.sinc(np.fft.fftfreq(N)) ** p   # (N,)
+    Wz = np.sinc(np.fft.rfftfreq(N)) ** p  # (N//2+1,)
+    return Wx[:, None, None] * Wx[None, :, None] * Wz[None, None, :]
+
+
+# ---------------------------------------------------------------------------
+# High-level grid painter
+# ---------------------------------------------------------------------------
+
+def particles_on_grid(positions, grid_size, box_size, MAS='CIC', backend='auto',
+                      deconvolve=False, anti_aliasing=False, verbose=True):
+    """
+    Assign particles to a grid, compute the density contrast, and optionally
+    apply MAS deconvolution and/or anti-aliasing in Fourier space.
+
+    Parameters
+    ----------
+    positions : np.ndarray, shape (N_particles, 3)
+        Particle positions in [0, box_size).
+    grid_size : int
+        Grid cells per dimension.
+    box_size : float
+        Comoving box length (Mpc/h).
+    MAS : str, optional
+        Mass assignment scheme: 'NGP', 'CIC', 'TSC', 'PCS'. Default 'CIC'.
+    backend : str, optional
+        Backend for assign_mass. See assign_mass docstring.
+    deconvolve : bool, optional
+        Divide by the MAS window W(k) = sinc(k dx/2)^p in Fourier space to
+        undo the smoothing introduced by the mass assignment kernel.
+        Uses a minimum floor of 1e-3 to prevent noise amplification near
+        the Nyquist frequency. Default False.
+    anti_aliasing : bool, optional
+        Zero Fourier modes above k = N/3 (the Orszag 2/3 dealiasing
+        threshold) to suppress power aliased from modes beyond Nyquist.
+        Default False.
+    verbose : bool, optional
+        Print timing. Default True.
+
+    Returns
+    -------
+    delta : np.ndarray, shape (grid_size, grid_size, grid_size), float32
+        Density contrast delta = rho/<rho> - 1.
+    """
+    from time import time
+
+    if positions.ndim != 2 or positions.shape[1] != 3:
+        raise ValueError("positions must have shape (N_particles, 3).")
+
+    delta = np.zeros((grid_size, grid_size, grid_size), dtype=np.float32)
+
+    if verbose:
+        print(f'Using {MAS} (backend={backend}) mass assignment scheme')
+        t0 = time()
+
+    assign_mass(delta, box_size, positions, scheme=MAS, backend=backend, verbose=verbose)
+
+    if verbose:
+        print(f'Time taken = {time()-t0:.3f} seconds')
+
+    # Density contrast
+    delta /= np.mean(delta, dtype=np.float64)
+    delta -= 1.0
+
+    if deconvolve or anti_aliasing:
+        delta_k = np.fft.rfftn(delta)
+
+        if deconvolve:
+            W = _mas_window_3d(grid_size, MAS)
+            delta_k /= np.maximum(W, 1e-3)
+
+        if anti_aliasing:
+            # Orszag 2/3 rule: zero modes above k_grid = N/3
+            kx = np.fft.fftfreq(grid_size) * grid_size
+            kz = np.fft.rfftfreq(grid_size) * grid_size
+            KX, KY, KZ = np.meshgrid(kx, kx, kz, indexing='ij')
+            mask = np.sqrt(KX**2 + KY**2 + KZ**2) > grid_size / 3
+            delta_k[mask] = 0.0
+
+        delta = np.fft.irfftn(delta_k, s=(grid_size, grid_size, grid_size)).real
+
+    return delta

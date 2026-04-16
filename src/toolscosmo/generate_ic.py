@@ -3,6 +3,7 @@ from numpy.fft import fftn, ifftn, rfftn, irfftn, fftshift, ifftshift
 from time import time
 
 from .cosmo import growth_factor, get_Plin, hubble
+from .mass_assignment import particles_on_grid  # noqa: F401 — re-exported for backwards compat
 
 def k_Nyquist(grid_size, box_size):
     kmax = 2*np.pi/box_size*grid_size
@@ -217,7 +218,10 @@ def first_order_lpt(delta_k, D1, grad_kernel, k_squared, oversampling_factor):
     grid_size_eff = delta_k.shape[0]
     grid_size = grid_size_eff/oversampling_factor
 
-    phi_k = -delta_k / k_squared
+    k2_safe = k_squared.copy()
+    k2_safe[0, 0, 0] = 1.0
+    phi_k = -delta_k / k2_safe
+    phi_k[0, 0, 0] = 0.0  # Zero mean displacement
 
     # Compute displacements Psi_i = -∂phi/∂ki
     disp_k = -grad_kernel * phi_k
@@ -239,7 +243,10 @@ def second_order_lpt(delta_k, D2, grad_kernel, k_squared, oversampling_factor):
     grid_size = int(grid_size_eff // oversampling_factor)  # Low-res grid size
 
     # Solve Poisson equation in Fourier space for first-order potential
-    phi_k = -delta_k / k_squared
+    k2_safe = k_squared.copy()
+    k2_safe[0, 0, 0] = 1.0
+    phi_k = -delta_k / k2_safe
+    phi_k[0, 0, 0] = 0.0  # Zero mean displacement
 
     # Compute 1LPT displacements in Fourier space: Psi_ij
     Psi_1LPT_k = -grad_kernel * phi_k
@@ -293,7 +300,10 @@ def third_order_lpt(delta_k, D3a, D3b, grad_kernel, k_squared, oversampling_fact
     grid_size = int(grid_size_eff // oversampling_factor)
 
     # 1LPT potential and displacement in Fourier space
-    phi_k = -delta_k / k_squared
+    k2_safe = k_squared.copy()
+    k2_safe[0, 0, 0] = 1.0
+    phi_k = -delta_k / k2_safe
+    phi_k[0, 0, 0] = 0.0
     Psi_1LPT_k = -grad_kernel * phi_k   # (3, N, N, N//2+1)
 
     # Hessian of φ^(1): phi_dxdx_1[i,j] = -∂_i∂_j φ^(1)
@@ -689,62 +699,3 @@ def compute_velocity(delta, kx, ky, kz, a, param):
 
     return vx, vy, vz
 
-def particles_on_grid(positions, grid_size, box_size, MAS='PCS', backend='auto', verbose=True):
-    """
-    Assign particles to a grid and compute the density field using a Mass Assignment Scheme (MAS).
-
-    This function places particles from the input `positions` array onto a grid of size `grid_size` 
-    and computes the corresponding density field using a Mass Assignment Scheme (MAS), such as the 
-    Piecewise Constant Scheme (PCS). The resulting density field is returned after normalizing the 
-    density contrast.
-
-    Parameters
-    ----------
-    positions : np.ndarray
-        A 2D array of particle positions with shape (N_particles, 3) for 3D or (N_particles, 2) for 2D.
-    grid_size : int
-        The number of grid points along each axis (grid resolution).
-    box_size : float
-        The physical size of the simulation box (in units of Mpc/h).
-    MAS : str, optional
-        The mass assignment scheme to use. Default is 'PCS' (Piecewise Constant Scheme).
-    backend : str
-        'auto'   — try numba (beorn) → numpy (built-in). Use 'pylians' explicitly if needed.
-        'numpy'  — always use the built-in pure-NumPy implementation (default fallback)
-        'numba'  — use beorn's Numba JIT backend (requires: pip install toolscosmo[numba])
-        'pylians'— use pylians MAS_library    (requires: pip install toolscosmo[pylians])
-    verbose : bool, optional
-        If True, prints progress updates. Default is True.
-
-    Returns
-    -------
-    np.ndarray
-        A 3D or 2D density field depending on the input positions, with shape (grid_size, grid_size, grid_size) 
-        for 3D or (grid_size, grid_size) for 2D. The density contrast is normalized to zero mean.
-    
-    Notes
-    -----
-    The Mass Assignment Scheme (MAS) used here assigns each particle's mass to its nearest grid points 
-    based on the chosen scheme ('PCS' or others). The density contrast is computed as the overdensity 
-    (delta = density - mean density).
-    """
-    from .mass_assignment import assign_mass
-
-    if positions.shape[1] == 2:
-        raise NotImplementedError("2D mass assignment is not yet supported by the built-in backend.")
-    delta = np.zeros((grid_size, grid_size, grid_size), dtype=np.float32)
-
-    if verbose:
-        print(f'\nUsing {MAS} (backend={backend}) mass assignment scheme')
-        tstart = time()
-
-    assign_mass(delta, box_size, positions, scheme=MAS, backend=backend, verbose=verbose)
-
-    if verbose:
-        print(f'Time taken = {time()-tstart:.3f} seconds\n')
-
-    # Compute overdensity and density contrast
-    delta /= np.mean(delta, dtype=np.float64)
-    delta -= 1.0
-
-    return delta
