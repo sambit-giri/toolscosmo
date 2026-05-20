@@ -39,3 +39,6 @@ numba          = ["beorn[numba]"]
 pylians        = ["pylians3"]
 differentiable = ["jax", "jaxlib", "diffrax"]
 observations   = ["corecon"]
+
+[tool.setuptools.package-data]
+toolscosmo = ["input_data/*"]
