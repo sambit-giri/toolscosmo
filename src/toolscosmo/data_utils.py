@@ -35,10 +35,7 @@ _DATASETS = {
     },
     'pantheon+': {
         'filename': 'pantheon_plus_sne.dat',
-        'urls': [
-            'https://raw.githubusercontent.com/PantheonPlusSH0ES/DataRelease/'
-            'main/Pantheon%2B_Data/1_DATA/Pantheon+SH0ES.dat',
-        ],
+        'urls': [],  # bundled in package; no public raw URL available
         'description': 'Pantheon+ 2022 SNe Ia compilation (Brout et al. 2022) — 1701 SNe',
         'type': 'sne',
     },
