@@ -42,3 +42,6 @@ observations   = ["corecon"]
 
 [tool.setuptools.package-data]
 toolscosmo = ["input_data/*"]
+
+[tool.setuptools.exclude-package-data]
+toolscosmo = ["input_data/*.cov"]

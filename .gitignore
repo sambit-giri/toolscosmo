@@ -9,3 +9,6 @@ src/toolscosmo/*.o
 
 
 
+
+# Large downloaded data (fetched on first use, not shipped)
+src/toolscosmo/input_data/*.cov
