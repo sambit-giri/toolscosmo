@@ -1,0 +1,4 @@
+# Cython sources are needed to build the extension from the sdist (setup.py checks for them).
+include src/toolscosmo/*.pyx
+# Large data downloaded on first use; never ship it.
+global-exclude *.cov *.part
