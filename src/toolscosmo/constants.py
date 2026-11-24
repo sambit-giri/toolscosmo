@@ -5,7 +5,7 @@ CONSTANTS AND UNIT CONVERSIONS
 """
 
 #Constants
-c        = 2.99792e5                # Speed of light [km/s]
+c        = 299792.458               # Speed of light [km/s] (exact)
 hP       = 4.1357e-15               # Planck constant [eV/Hz]
 m_p      = 8.4119e-58               # Proton mass in [Msun]
 kB       = 1.380649e-16             # Boltzmann constsant [erg/K]

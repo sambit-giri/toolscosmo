@@ -120,3 +120,80 @@ def test_luminosity_distance_relation(param):
     dc = toolscosmo.comoving_distance(z, param)
     dl = toolscosmo.luminosity_distance(z, param)
     assert np.isclose(dl, dc * (1 + z), rtol=1e-3)
+
+
+# --- Distances: regression against astropy (issue #16) ---
+# Radiation is switched off so the toolscosmo model matches astropy's
+# Tcmb0=0 flat cosmologies exactly.
+
+Z_TEST = np.concatenate([np.logspace(-4, np.log10(3), 200), [10.0, 100.0, 1100.0]])
+
+def _par_norad(DE='LCDM', Om=0.315, w0=-1.0, wa=0.0):
+    p = toolscosmo.par(DE=DE) if DE != 'LCDM' else toolscosmo.par()
+    p.cosmo.solver = 'toolscosmo'
+    p.cosmo.Om = Om
+    p.cosmo.Or = 0.0
+    if DE == 'CPL':
+        p.DE.w0, p.DE.wa = w0, wa
+    return p
+
+def _astropy_ref(DE, Om, h0, w0=-1.0, wa=0.0):
+    from astropy.cosmology import FlatLambdaCDM, Flatw0waCDM
+    if DE == 'CPL':
+        return Flatw0waCDM(H0=100*h0, Om0=Om, w0=w0, wa=wa, Tcmb0=0)
+    return FlatLambdaCDM(H0=100*h0, Om0=Om, Tcmb0=0)
+
+@pytest.mark.parametrize('method', ['grid', 'quad'])
+@pytest.mark.parametrize('DE,Om,w0,wa', [
+    ('LCDM', 0.315, -1.0,  0.0),
+    ('LCDM', 0.15,  -1.0,  0.0),
+    ('LCDM', 0.6,   -1.0,  0.0),
+    ('CPL',  0.3,   -0.7, -1.0),
+    ('CPL',  0.3,   -1.2,  0.8),
+])
+def test_distance_modulus_matches_astropy(method, DE, Om, w0, wa):
+    p = _par_norad(DE, Om, w0, wa)
+    ref = _astropy_ref(DE, Om, p.cosmo.h0, w0, wa)
+    dc = toolscosmo.comoving_distance(Z_TEST, p, method=method)
+    dmu = 5*np.log10(dc / ref.comoving_distance(Z_TEST).value)
+    assert np.max(np.abs(dmu)) < 1e-4  # mag
+
+def test_distance_modulus_low_z_no_offset():
+    # The old integrator started at z=1e-3 and was 0.1 mag low at z=0.023.
+    p = _par_norad()
+    ref = _astropy_ref('LCDM', 0.315, p.cosmo.h0)
+    z = np.array([0.001, 0.005, 0.01, 0.023])
+    assert np.allclose(toolscosmo.distance_modulus(z, p), ref.distmod(z).value, atol=1e-4)
+
+def test_comoving_distance_tiny_z_positive_and_hubble_law(param):
+    # For z << 1, D_C -> c z / H0. The old code returned negative values for z < 1e-3.
+    from toolscosmo.constants import c
+    z = np.array([1e-6, 1e-5, 1e-4])
+    dc = toolscosmo.comoving_distance(z, param)
+    assert np.all(dc > 0)
+    assert np.allclose(dc, c*z/(100*param.cosmo.h0), rtol=1e-3)
+
+def test_comoving_distance_shapes(param):
+    assert np.isscalar(toolscosmo.comoving_distance(1.0, param))
+    assert toolscosmo.comoving_distance(0.0, param) == 0.0
+    out = toolscosmo.comoving_distance([0.0, 0.5, 1.0], param)
+    assert out.shape == (3,) and out[0] == 0.0
+    z2d = np.array([[0.1, 0.2], [0.3, 0.4]])
+    assert toolscosmo.comoving_distance(z2d, param).shape == (2, 2)
+
+def test_comoving_distance_order_independent(param):
+    # The grid method interpolates, so output must not depend on input ordering.
+    z = np.array([2.0, 0.01, 1.0, 0.1])
+    d = toolscosmo.comoving_distance(z, param)
+    d_sorted = toolscosmo.comoving_distance(np.sort(z), param)
+    assert np.allclose(d[np.argsort(z)], d_sorted, rtol=1e-12)
+
+def test_comoving_distance_grid_vs_quad_with_radiation(param):
+    z = np.logspace(-3, np.log10(1100), 50)
+    d_grid = toolscosmo.comoving_distance(z, param, method='grid')
+    d_quad = toolscosmo.comoving_distance(z, param, method='quad')
+    assert np.allclose(d_grid, d_quad, rtol=1e-5)
+
+def test_comoving_distance_bad_method(param):
+    with pytest.raises(ValueError):
+        toolscosmo.comoving_distance(1.0, param, method='trapz')

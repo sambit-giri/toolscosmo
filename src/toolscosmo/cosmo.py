@@ -409,9 +409,56 @@ def growth_factor_CPT(z, param):
     return Dz(np.atleast_1d(z))
 
 
-def comoving_distance(z,param):
+def _comoving_distance_grid(z, param, n_grid=2000):
+    """
+    Comoving distance [Mpc] from one cumulative integral on a grid.
+
+    Integrates D_C = int_0^z c/H(z') dz' in the variable u = ln(1+z), where
+    dD_C/du = c(1+z)/H(z). A uniform grid in u resolves both low and very high
+    redshifts. The cumulative integral (Simpson) is evaluated once on
+    [0, ln(1+z_max)] and interpolated to the requested redshifts with a cubic
+    spline, so the cost is a single vectorised H(z) call regardless of len(z).
+    """
+    z = np.asarray(z, dtype=float)
+    zpos = z[z > 0]
+    if zpos.size == 0:
+        return np.zeros_like(z)
+    u = np.linspace(0.0, np.log1p(zpos.max()), n_grid)
+    zg = np.expm1(u)
+    integrand = c * (1.0 + zg) / np.asarray(hubble(zg, param), dtype=float)
+    dcom_grid = cumsimpson(integrand, x=u, initial=0)
+    spline = CubicSpline(u, dcom_grid)
+    return np.where(z > 0, spline(np.log1p(np.clip(z, 0, None))), 0.0)
+
+def _comoving_distance_quad(z, param):
+    """
+    Comoving distance [Mpc] with adaptive quadrature for each redshift.
+    Slow but accurate to near machine precision; mainly for validation.
+    """
+    dcom = lambda z0: quad(lambda x: c/hubble(x, param), 0, z0, epsabs=0, epsrel=1e-10)[0] if z0 > 0 else 0.0
+    return np.vectorize(dcom, otypes=[float])(z)
+
+def comoving_distance(z, param, method='grid', n_grid=2000):
     """
     Comoving distance between z=0 and z.
+
+    Parameters
+    ----------
+    z : float or array_like
+        Redshift(s).
+    param : Bunch
+        Cosmological parameter object.
+    method : str
+        Integration method for the 'toolscosmo' solver: 'grid' (default; one
+        cumulative integral plus spline interpolation, fast) or 'quad'
+        (scipy.integrate.quad per redshift, slow, for validation).
+        Ignored for the astropy/camb/class solvers.
+    n_grid : int
+        Number of grid points in ln(1+z) for method='grid'.
+
+    Returns
+    -------
+    Comoving distance in Mpc, same shape as z.
     """
     if param.cosmo.solver.lower()=='astropy':
         cosmo = astropy_cosmo(param).cosmo
@@ -434,11 +481,13 @@ def comoving_distance(z,param):
         print(f'{param.cosmo.solver} is unknown and, therefore, set to toolscosmo.')
     
     if isinstance(z,list): z = np.array(z)
-    # dcom = cumtrapz(c/hubble(z,param),z,initial=0)  # [Mpc]
-    # dcom = lambda z: quad(lambda x: c/hubble(x,param), 0, z)[0]
-    zspace = lambda z: np.logspace(-3,np.log10(z))
-    dcom = lambda z: trapz(c/hubble(zspace(z),param), zspace(z)) if z>0 else 0
-    return np.vectorize(dcom)(z)
+    if method.lower() == 'quad':
+        dcom = _comoving_distance_quad(z, param)
+    elif method.lower() == 'grid':
+        dcom = _comoving_distance_grid(z, param, n_grid=n_grid)
+    else:
+        raise ValueError(f"Unknown method '{method}'. Use 'grid' or 'quad'.")
+    return dcom if np.ndim(z) else float(dcom)
 
 def luminosity_distance(z,param):
     """

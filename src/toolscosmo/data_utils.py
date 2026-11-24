@@ -7,6 +7,7 @@ Usage
 
     download_data('pantheon')                    # one-time download
     sne  = load_sne_data('pantheon')             # loads (downloads if needed)
+    snp  = load_sne_data('pantheon+', cov=True)  # adds the 1701x1701 STAT+SYS covariance
     uvlf = load_uvlf_data(source='corecon')      # requires: pip install corecon
 """
 
@@ -16,6 +17,9 @@ import numpy as np
 
 # Directory where data files are stored alongside the package
 _DATA_DIR = os.path.join(os.path.dirname(__file__), 'input_data')
+
+_PANTHEON_PLUS_URL = ('https://raw.githubusercontent.com/PantheonPlusSH0ES/DataRelease/'
+                      'main/Pantheon%2B_Data/4_DISTANCES_AND_COVAR/')
 
 # ---------------------------------------------------------------------------
 # Dataset registry
@@ -35,9 +39,16 @@ _DATASETS = {
     },
     'pantheon+': {
         'filename': 'pantheon_plus_sne.dat',
-        'urls': [],  # bundled in package; no public raw URL available
+        'urls': [_PANTHEON_PLUS_URL + 'Pantheon%2BSH0ES.dat'],  # also bundled in package
         'description': 'Pantheon+ 2022 SNe Ia compilation (Brout et al. 2022) — 1701 SNe',
         'type': 'sne',
+    },
+    'pantheon+_cov': {
+        # ~33 MB, so not bundled: downloaded on first use and cached (git-ignored).
+        'filename': 'pantheon_plus_STAT+SYS.cov',
+        'urls': [_PANTHEON_PLUS_URL + 'Pantheon%2BSH0ES_STAT%2BSYS.cov'],
+        'description': 'Pantheon+SH0ES STAT+SYS covariance (Brout et al. 2022) — 1701x1701',
+        'type': 'cov',
     },
     'union2.1': {
         'filename': 'union2p1_sne.txt',
@@ -116,7 +127,11 @@ def download_data(name, overwrite=False, dest_dir=None):
     for url in meta['urls']:
         try:
             print(f"Downloading '{name}' from {url} ...")
-            urllib.request.urlretrieve(url, local_path)
+            # Download to a temporary name first so an interrupted download
+            # never leaves a truncated file that looks like a valid cache.
+            tmp_path = local_path + '.part'
+            urllib.request.urlretrieve(url, tmp_path)
+            os.replace(tmp_path, local_path)
             print(f"Saved to {local_path}")
             return local_path
         except Exception as e:
@@ -133,7 +148,7 @@ def download_data(name, overwrite=False, dest_dir=None):
 # Loaders
 # ---------------------------------------------------------------------------
 
-def load_sne_data(name='pantheon', **kwargs):
+def load_sne_data(name='pantheon', cov=False, **kwargs):
     """
     Load an SNe Ia dataset, downloading it first if not already cached.
 
@@ -141,6 +156,10 @@ def load_sne_data(name='pantheon', **kwargs):
     ----------
     name : str
         Dataset name: ``'pantheon'``, ``'pantheon+'``, or ``'union2.1'``.
+    cov : bool
+        If True, also return the full statistical + systematic covariance
+        matrix (currently available for ``'pantheon+'`` only). The ~33 MB file
+        is downloaded on first use and cached in the package data folder.
     **kwargs
         Forwarded to ``numpy.genfromtxt``.
 
@@ -151,6 +170,8 @@ def load_sne_data(name='pantheon', **kwargs):
         ``mu``   — distance moduli
         ``mu_err`` — 1-sigma uncertainties on mu
         ``raw``  — full structured array from the file
+        ``cov``  — (N, N) covariance in mag^2, rows/columns in the same order
+                   as ``raw`` (only if ``cov=True``)
     """
     name = name.lower()
     if name not in _DATASETS:
@@ -161,6 +182,9 @@ def load_sne_data(name='pantheon', **kwargs):
     if meta['type'] != 'sne':
         raise ValueError(f"'{name}' is not an SNe dataset.")
 
+    if cov and name != 'pantheon+':
+        raise NotImplementedError(f"cov=True is only available for 'pantheon+', not '{name}'.")
+
     local_path = os.path.join(_DATA_DIR, meta['filename'])
     if not os.path.exists(local_path):
         download_data(name)
@@ -168,9 +192,49 @@ def load_sne_data(name='pantheon', **kwargs):
     if name == 'pantheon':
         return _load_pantheon(local_path, **kwargs)
     elif name == 'pantheon+':
-        return _load_pantheon_plus(local_path, **kwargs)
+        out = _load_pantheon_plus(local_path, **kwargs)
+        if cov:
+            cov_path = os.path.join(_DATA_DIR, _DATASETS['pantheon+_cov']['filename'])
+            if not os.path.exists(cov_path):
+                download_data('pantheon+_cov')
+            out['cov'] = read_sne_covariance(cov_path, n_expected=len(out['z']))
+        return out
     elif name == 'union2.1':
         return _load_union21(local_path, **kwargs)
+
+
+def read_sne_covariance(path, n_expected=None):
+    """
+    Read an SNe covariance file in the Pantheon/Pantheon+ format: the first
+    line is N, followed by the N*N matrix entries (row-major, one per line).
+
+    Parameters
+    ----------
+    path : str
+        Path to the covariance file.
+    n_expected : int or None
+        If given, check that N matches the number of SNe in the data file.
+
+    Returns
+    -------
+    (N, N) ndarray
+    """
+    with open(path) as f:
+        n = int(f.readline().split()[0])
+        values = np.loadtxt(f, dtype=float).ravel()
+    if values.size != n * n:
+        raise ValueError(f"{path}: header says N={n}, so expected {n*n} entries but found {values.size}. "
+                         "The file may be truncated; delete it to re-download.")
+    if n_expected is not None and n != n_expected:
+        raise ValueError(f"{path}: covariance is {n}x{n} but the data file has {n_expected} SNe.")
+    C = values.reshape(n, n)
+    # The published files are printed with ~8 significant digits, so C and C.T
+    # differ by rounding (Pantheon+: up to 1.4e-6 of sqrt(C_ii C_jj)). Reject
+    # anything larger, then symmetrise exactly.
+    d = np.sqrt(np.abs(np.diag(C)))
+    if np.max(np.abs(C - C.T) / np.outer(d, d)) > 1e-4:
+        raise ValueError(f"{path}: covariance matrix is not symmetric.")
+    return 0.5 * (C + C.T)
 
 def load_lf_data(name='bouwens2015', **kwargs):
     """
