@@ -1,3 +1,10 @@
+from importlib.metadata import version as _version, PackageNotFoundError as _PackageNotFoundError
+
+try:
+    __version__ = _version("toolscosmo")   # single source of truth: pyproject.toml
+except _PackageNotFoundError:              # running from a source tree that was never installed
+    __version__ = "unknown"
+
 from . import param, cosmo, constants
 from . import mass_accretion, source_model, luminosity_function
 from . import run_BoltzmannSolver, emulate_BoltmannSolver
